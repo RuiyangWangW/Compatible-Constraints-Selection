@@ -19,13 +19,13 @@ plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.1
 t = 0
-tf = 80
+tf = 50
 num_steps = int(tf/dt)
 
 # Define Parameters for CLF and CBF
 U_max = 1.0
 d_max = 0.6
-beta_list = [0.4]
+beta_list = [0.6]
 alpha_clf = 0.4
 num_constraints_soft1 = 1
 num_constraints_clf = 1
@@ -109,7 +109,7 @@ ax.axis('equal')
 #Define Disturbance
 disturbance = True
 disturb_std = 1.5
-disturb_max = 4.0 * U_max
+disturb_max = 2.0 * U_max
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
 y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std) * disturb_max + 3.5
@@ -151,11 +151,11 @@ for idx, comb in enumerate(all_comb):
         pred_frame = predictive_frame_lag(x0,dt,tf,U_max,num_constraints_hard=num_constraints_hard1,beta_list=beta_list, \
                                     x_r_list=x_r_list, radius_list=radius_list, alpha_list=alpha_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
-        x_list_comb, y_list_comb, t_list_comb, score = pred_frame.forward(flag='offline')
+        x_list_comb, y_list_comb, t_list_comb, score, _ = pred_frame.forward(flag='offline')
     else:
         score = 0
     if score >= best_reward:
-        if score == best_reward and comb.count(1) > all_comb[best_idx].count(1):
+        if score == best_reward and comb.count(1) < all_comb[best_idx].count(1):
             continue
         x_list = x_list_comb
         y_list = y_list_comb

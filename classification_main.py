@@ -13,8 +13,8 @@ for k in range (1,11,1):
     random.seed(k)
 
     #Define Num of Random Points
-    n_points = 500
-    n_outlier = 50
+    n_points = 100
+    n_outlier = 10
 
     #Define Optimal Classification Line in the form ax+b
     a = 0.8
@@ -65,7 +65,7 @@ for k in range (1,11,1):
 
     ## Put the result into a color plot
     #Z = Z.reshape(xx.shape)
-
+    """
     start_time = time.time()
     result = optimal_classification(x_class_0,y_class_0,x_class_1,y_class_1)
     end_time = time.time()
@@ -76,10 +76,10 @@ for k in range (1,11,1):
     print(k,"th test")
     print("Time Elapsed: ", end_time-start_time)
     print("Num of constraints removed: ", len(cover_set_0)+len(cover_set_1), "from optimal")
-
     """
+    
     start_time = time.time()
-    result = chinneck_2(x_class_0,y_class_0,x_class_1,y_class_1)
+    result = chinneck_1(x_class_0,y_class_0,x_class_1,y_class_1)
     end_time = time.time()
     #optimal_a = result["optimal_a"]
     #optimal_b = result["optimal_b"]
@@ -89,6 +89,7 @@ for k in range (1,11,1):
     print("Time Elapsed: ", end_time-start_time)
     print("Num of constraints removed: ", len(cover_set_0)+len(cover_set_1), "from chinneck_2")
 
+    """
     start_time = time.time()
     result = lagrange_score_1(x_class_0,y_class_0,x_class_1,y_class_1)
     end_time = time.time()

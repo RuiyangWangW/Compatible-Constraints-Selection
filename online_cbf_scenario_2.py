@@ -26,7 +26,7 @@ num_steps = int(tf/dt)
 # Define Parameters for CLF and CBF
 U_max = 1.0
 d_max = 0.6
-beta_list = [0.4]
+beta_list = [0.6]
 alpha_clf = 0.4
 num_constraints_soft1 = 1
 num_constraints_clf = 1
@@ -110,7 +110,7 @@ ax.axis('equal')
 #Define Disturbance
 disturbance = True
 disturb_std = 1.5
-disturb_max = 2.0 * U_max
+disturb_max = 6.0 * U_max
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
 y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std) * disturb_max + 3.5
@@ -131,28 +131,26 @@ best_reward = 0
 
 x0 = np.array([5.0,0.0])
 
-flag = 'lag'
 total_set = 0
 total_iter = 0
-for i in range(10):
-    iteration, best_comb = genetic_comb_slack(x0=x0, x_r_list=centroids, time_horizon=tf,radius_list=radii, alpha_list=alpha_list, \
+for i in range(1):
+    iteration, best_comb, num_sets = deterministic_lag(x0=x0, x_r_list=centroids, time_horizon=tf,radius_list=radii, alpha_list=alpha_list, \
                         U_max = U_max, dt=dt, disturbance=disturbance, \
                         disturb_std=disturb_std, disturb_max=disturb_max, beta_value=beta_list[0], obstacle_list=obstacle_list, \
                             num_constraints_hard=num_constraints_hard1)
     x_r_list = []
     radius_list = []
     alpha_list_comb = []
-    for i in range(len(best_comb)):
-        if best_comb[i] == 1:
-            x_r_list.append(centroids[i,:])
-            radius_list.append(radii[i])
-            alpha_list_comb.append(alpha_list[i])
+    for k in range(len(best_comb)):
+        if best_comb[k] == 1:
+            x_r_list.append(centroids[k,:])
+            radius_list.append(radii[k])
+            alpha_list_comb.append(alpha_list[k])
 
-    num_sets = len(x_r_list)
     total_set += num_sets
     num_iter = iteration
     total_iter += num_iter
-    print('Num Sets: ', len(x_r_list) )
+    print('Num Sets: ', num_sets )
     print('Time (s): ', time.perf_counter()-t_start)
 
 print('Average Set: ', total_set/10.0)

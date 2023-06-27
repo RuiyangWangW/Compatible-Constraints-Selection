@@ -69,6 +69,7 @@ class predictive_frame_lag:
         t = 0
         lamda_sum = 0
         lamda_sum_list = []
+        arrived_targets = 0
 
         for i in range(self.num_steps):
 
@@ -140,16 +141,9 @@ class predictive_frame_lag:
             t += self.dt
             t_list.append(t)
 
-            if (h1 >= 0) and (delta_t<self.delta_t_limit):
-                reward += 1
-                lamda_sum_i = copy.deepcopy(lamda_sum)
-                lamda_sum = 0
-                lamda_sum_list.append(lamda_sum_i)
-                if self.x_r_id == len(self.x_r_list)-1:
-                    break
-                self.x_r_id += 1
-                delta_t = 0
-            elif (h1 < 0) and (delta_t>self.delta_t_limit):
+            if ((h1 >= 0) and (delta_t<self.delta_t_limit)) or ((h1 < 0) and (delta_t>self.delta_t_limit)):
+                if (h1 >= 0) and (delta_t<self.delta_t_limit):
+                    arrived_targets += 1
                 lamda_sum_i = copy.deepcopy(lamda_sum)
                 lamda_sum = 0
                 lamda_sum_list.append(lamda_sum_i)
@@ -162,11 +156,11 @@ class predictive_frame_lag:
             
         if (flag=='evolve'):
             if len(lamda_sum_list) != 0:
-                reward = max(lamda_sum_list)
+                reward = sum(lamda_sum_list)
             else:
                 reward = lamda_sum
 
-        return x_list, y_list, t_list, reward
+        return x_list, y_list, t_list, reward, arrived_targets
 
 
 
@@ -185,11 +179,10 @@ def fitness_score_lag(comb, x0, time_horizon, x_r_list, radius_list, alpha_list,
                   num_constraints_hard, fitness_score_table):
     
     if fitness_score_table.get(tuple(comb)) != None:
-        score = fitness_score_table.get(tuple(comb))
-        return score, fitness_score_table
+        score, arrived_targets = fitness_score_table.get(tuple(comb))
+        return score, arrived_targets, fitness_score_table
 
     num_states = len(x_r_list)    
-    ones_count = 0
     item_weight = 1000.0
     x_r_list_comb = []
     radii_comb = []
@@ -199,20 +192,20 @@ def fitness_score_lag(comb, x0, time_horizon, x_r_list, radius_list, alpha_list,
             x_r_list_comb.append(x_r_list[i])
             radii_comb.append(radius_list[i])
             alpha_list_comb.append(alpha_list[i])
-            ones_count += 1
-    zeros_count = num_states-ones_count
 
     if (len(x_r_list_comb)>0):
         pred_frame = predictive_frame_lag(x0,dt,time_horizon,U_max,num_constraints_hard=num_constraints_hard,beta_list=np.array([beta_value]), \
                                     x_r_list=x_r_list_comb, radius_list=radii_comb, alpha_list=alpha_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
-        _,_,_, score = pred_frame.forward(flag='evolve')
-
+        _,_,_, score, arrived_targets = pred_frame.forward(flag='evolve')
+        zeros_count = num_states - arrived_targets
+    else:
+        zeros_count = num_states - 1
+    
     score += zeros_count*item_weight
+    fitness_score_table.update({tuple(comb): [score, arrived_targets]})
 
-    fitness_score_table.update({tuple(comb): score})
-
-    return score, fitness_score_table
+    return score, arrived_targets, fitness_score_table
 
 def mutate_process(comb, mutation_rate):
     mutated_comb = []
@@ -239,28 +232,31 @@ def genetic_comb_lag(x0, x_r_list, time_horizon, radius_list, alpha_list, U_max,
     
     comb_1_appended = copy.deepcopy(comb_1)
     comb_1_appended.append(1)
-    score_1, fitness_score_table = fitness_score_lag(comb_1_appended , x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_1, arrived_targets1,fitness_score_table = fitness_score_lag(comb_1_appended , x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     comb_2_appended = copy.deepcopy(comb_2)
     comb_2_appended.append(1)
-    score_2, fitness_score_table = fitness_score_lag(comb_2_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_2, arrived_targets2, fitness_score_table = fitness_score_lag(comb_2_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     comb_3_appended = copy.deepcopy(comb_3)
     comb_3_appended.append(1)
-    score_3, fitness_score_table = fitness_score_lag(comb_3_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_3, arrived_targets3, fitness_score_table = fitness_score_lag(comb_3_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     comb_4_appended = copy.deepcopy(comb_4)
     comb_4_appended.append(1)    
     
-    score_4, fitness_score_table = fitness_score_lag(comb_4_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_4, arrived_targets4, fitness_score_table = fitness_score_lag(comb_4_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     
     fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
 
     comb_all = np.array([comb_1,comb_2,comb_3,comb_4])
+    
+    arrived_targets_all = np.array([arrived_targets1, arrived_targets2, arrived_targets3, arrived_targets4]).reshape(4,)
+
     fit_min = np.min(fit_all)
     comb_min = comb_all[np.argmin(fit_all)].tolist()
-
+    arrived_targets = arrived_targets_all[np.argmin(fit_all)]
     mutation_rate = 0.3
     epsilon = 1e-5
     no_viable_sol = True
@@ -287,31 +283,62 @@ def genetic_comb_lag(x0, x_r_list, time_horizon, radius_list, alpha_list, U_max,
 
             comb_1_appended = copy.deepcopy(comb_1)
             comb_1_appended.append(1)        
-            score_1, fitness_score_table = fitness_score_lag(comb_1_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+            score_1, arrived_targets1, fitness_score_table = fitness_score_lag(comb_1_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                             obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table)
             comb_2_appended = copy.deepcopy(comb_2)
             comb_2_appended.append(1)
-            score_2, fitness_score_table = fitness_score_lag(comb_2_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+            score_2, arrived_targets2, fitness_score_table = fitness_score_lag(comb_2_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                             obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table)
             comb_3_appended = copy.deepcopy(comb_3)
             comb_3_appended.append(1)
-            score_3, fitness_score_table = fitness_score_lag(comb_3_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+            score_3, arrived_targets3, fitness_score_table = fitness_score_lag(comb_3_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                             obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table)
             comb_4_appended = copy.deepcopy(comb_4)
             comb_4_appended.append(1)
-            score_4, fitness_score_table = fitness_score_lag(comb_4_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+            score_4, arrived_targets4, fitness_score_table = fitness_score_lag(comb_4_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
                                         obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table)
 
             fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
+            arrived_targets_all = np.array([arrived_targets1, arrived_targets2, arrived_targets3, arrived_targets4]).reshape(4,)
 
             if (fit_all.min()<fit_min):
                 fit_min = fit_all.min()
                 comb_min = comb_all[np.argmin(fit_all)].tolist()
+                arrived_targets = arrived_targets_all[np.argmin(fit_all)]
+
         if fit_min < 1e5:
             no_viable_sol = False
         else:
             iteration += 1
 
     comb_min.append(1)
-    return iteration, comb_min
+    return iteration, comb_min, arrived_targets
 
+def deterministic_lag(x0, x_r_list, time_horizon, radius_list, alpha_list, U_max, beta_value, obstacle_list, dt, \
+                disturbance, disturb_std, disturb_max, num_constraints_hard):
+    
+    init_comb = np.ones(shape=(len(x_r_list)))
+    eps = 1.0e5
+    fitness_score_table = {}
+    min_r, arrived_targets, fitness_score_table = fitness_score_lag(init_comb, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+    best_comb = init_comb
+    dropped_constraints = {}
+    while abs(min_r) > eps:
+        min_r = 1.0e6
+        for i in range(len(x_r_list)):
+            if i!=len(x_r_list)-1 and dropped_constraints.get(i)==None:
+                temp_comb = copy.deepcopy(best_comb)
+                temp_comb[i] = 0
+                r, arrived_targets_temp, fitness_score_table = fitness_score_lag(temp_comb, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+                if r <= min_r:
+                    min_r = r
+                    candidate_idx = i
+                    arrived_targets = arrived_targets_temp
+        best_comb[candidate_idx] = 0
+        dropped_constraints.update({candidate_idx: True})
+        if len(dropped_constraints) == len(x_r_list):
+            break
+    iteration = 1
+    return iteration, best_comb, arrived_targets
