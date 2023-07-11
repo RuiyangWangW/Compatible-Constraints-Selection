@@ -19,7 +19,7 @@ plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.1
 t = 0
-tf = 50
+tf = 60
 num_steps = int(tf/dt)
 
 # Define Parameters for CLF and CBF
@@ -109,7 +109,7 @@ ax.axis('equal')
 #Define Disturbance
 disturbance = True
 disturb_std = 1.5
-disturb_max = 2.0 * U_max
+disturb_max = 6.0 * U_max
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
 y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std) * disturb_max + 3.5
@@ -130,42 +130,48 @@ all_comb = list(itertools.product([0, 1], repeat=num_points-1))
 
 best_idx = 0
 best_reward = 0
-
+reward_list = [1,1,1,1,1,1,1,1]
 x0 = np.array([5.0,0.0])
 
-for idx, comb in enumerate(all_comb):
+#for idx, comb in enumerate(all_comb):
+if (True):
+    comb = [1,1,0,0,0,1,0,1]
     x_r_list = []
     radius_list = []
     alpha_list_comb = []
+    reward_list_comb = []
 
     for i in range(num_points-1):
         if comb[i] == 1:
             x_r_list.append(centroids[i,:])
             radius_list.append(radii[i])
             alpha_list_comb.append(alpha_list[i])
+            reward_list_comb.append(reward_list[i])
+
     x_r_list.append(centroids[-1,:])
     radius_list.append(radii[-1])
     alpha_list_comb.append(alpha_list[-1])
+    reward_list_comb.append(0)
 
     if len(x_r_list) > 0:
-        pred_frame = predictive_frame_lag(x0,dt,tf,U_max,num_constraints_hard=num_constraints_hard1,beta_list=beta_list, \
-                                    x_r_list=x_r_list, radius_list=radius_list, alpha_list=alpha_list_comb, obstacle_list=obstacle_list,\
+        pred_frame = predictive_frame_lag(x0,dt,tf,U_max,num_constraints_hard=num_constraints_hard1, \
+                                    x_r_list=x_r_list, radius_list=radius_list, alpha_list=alpha_list_comb, \
+                                    reward_list = reward_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
-        x_list_comb, y_list_comb, t_list_comb, score, _ = pred_frame.forward(flag='offline')
+        x_list_comb, y_list_comb, t_list_comb, _, _, reward = pred_frame.forward()
     else:
-        score = 0
-    if score >= best_reward:
-        if score == best_reward and comb.count(1) < all_comb[best_idx].count(1):
-            continue
+        reward = 0
+    if reward >= best_reward:
         x_list = x_list_comb
         y_list = y_list_comb
         t_list = t_list_comb
-        best_reward = score
-        best_idx = idx
+        best_reward = reward
+        #best_idx = idx
         
-best_comb = all_comb[best_idx]
-print(best_reward)
-print(time.perf_counter()-t_start)
+#best_comb = all_comb[best_idx]
+best_comb = comb
+print("best_reward: ", best_reward)
+print("Time Used: ", time.perf_counter()-t_start)
 x_r_list = []
 radius_list = []
 alpha_list_comb = []

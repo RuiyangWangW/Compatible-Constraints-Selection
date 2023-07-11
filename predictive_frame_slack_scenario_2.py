@@ -7,7 +7,7 @@ import copy
 
 class predictive_frame_slack:
 
-    def __init__(self, x0, dt, tf, U_max, num_constraints_hard, beta_list, x_r_list, radius_list, alpha_list, obstacle_list, disturbance, disturb_std, disturb_max):
+    def __init__(self, x0, dt, tf, U_max, num_constraints_hard, reward_list, x_r_list, radius_list, alpha_list, obstacle_list, disturbance, disturb_std, disturb_max):
         self.x0 = x0
         self.dt = dt
         self.tf = tf
@@ -18,7 +18,6 @@ class predictive_frame_slack:
         self.num_constraints_clf = 1
         self.alpha_list = alpha_list
         self.obstacle_list = obstacle_list
-        self.beta_list = beta_list
         self.robot = SingleIntegrator2D(self.x0, self.dt, ax=None, id = 0, color='r', palpha=1.0, \
                                         num_constraints_hard = self.num_constraints_soft+self.num_constraints_hard,
                                         num_constraints_soft = self.num_constraints_clf, plot=False)
@@ -27,17 +26,17 @@ class predictive_frame_slack:
         self.disturb_max = disturb_max
         self.x_r_list = x_r_list
         self.radius_list = radius_list
+        self.reward_list = reward_list
         self.x_r_id = 0
         self.alpha_clf = 0.8
+        self.beta_value = 0.6
         self.y_max = 6.0
         self.delta_t_limit = float(self.tf)/len(x_r_list)
         self.eps = 1e-5
-        self.slack_thresh = 20.0
-
 
     def forward(self):
-    
-        # Define relaxed Optimization Problem
+        
+        # Define constrained Optimization Problem
         u1 = cp.Variable((2,1))
         u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)))
         alpha_soft = cp.Variable((self.num_constraints_soft))
@@ -49,19 +48,32 @@ class predictive_frame_slack:
         b1_soft = cp.Parameter((self.num_constraints_soft,1),value=np.zeros((self.num_constraints_soft,1)))
         A1_clf = cp.Parameter((self.num_constraints_clf,2),value=np.zeros((self.num_constraints_clf,2)))
         b1_clf = cp.Parameter((self.num_constraints_clf,1),value=np.zeros((self.num_constraints_clf,1)))
+        slack_constraints_clf = cp.Variable((self.num_constraints_clf,1))
+        const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + cp.multiply(alpha_soft, h), \
+                  A1_clf @ u1 <= b1_clf + slack_constraints_clf, cp.norm2(u1) <= self.U_max,
+                  alpha_soft >= np.zeros((self.num_constraints_soft)),
+                  slack_constraints_clf >= np.zeros((self.num_constraints_clf,1))]
+        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 100*cp.sum_squares(slack_constraints_clf) 
+                                 + 10*cp.sum_squares(alpha_soft-alpha_0))
+        constrained_controller = cp.Problem( objective1, const1 ) 
+
+
+        # Define relaxed Optimization Problem
+        u_relaxed = cp.Variable((2,1))
+        alpha_soft = cp.Variable((self.num_constraints_soft))
         slack_constraints_hard = cp.Variable((self.num_constraints_hard,1))
         slack_constraints_soft = cp.Variable((self.num_constraints_soft,1))
         slack_constraints_clf = cp.Variable((self.num_constraints_clf,1))
-        const1 = [A1_hard @ u1 <= b1_hard + slack_constraints_hard, A1_soft @ u1 <= b1_soft + cp.multiply(alpha_soft, h) + slack_constraints_soft, \
-                  A1_clf @ u1 <= b1_clf + slack_constraints_clf, cp.norm2(u1) <= self.U_max,
+        const_relaxed = [A1_hard @ u_relaxed <= b1_hard + slack_constraints_hard, A1_soft @ u_relaxed <= b1_soft + cp.multiply(alpha_soft, h) + slack_constraints_soft, \
+                  A1_clf @ u_relaxed <= b1_clf + slack_constraints_clf, cp.norm2(u_relaxed) <= self.U_max,
                   alpha_soft >= np.zeros((self.num_constraints_soft)),
                   slack_constraints_hard >= np.zeros((self.num_constraints_hard,1)),
                   slack_constraints_soft >= np.zeros((self.num_constraints_soft,1)),
                   slack_constraints_clf >= np.zeros((self.num_constraints_clf,1)),]
-        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 100*cp.sum_squares(slack_constraints_clf) 
+        objective_relaxed = cp.Minimize(cp.sum_squares(u_relaxed - u1_ref ) + 100*cp.sum_squares(slack_constraints_clf) 
                                  + 1000*cp.sum_squares(slack_constraints_soft) + 10*cp.sum_squares(alpha_soft-alpha_0)
                                  + 1000*cp.sum_squares(slack_constraints_hard))
-        constrained_controller = cp.Problem( objective1, const1 ) 
+        relaxed_controller = cp.Problem(objective_relaxed, const_relaxed) 
         
         robot = self.robot
         # Define Disturbance 
@@ -69,13 +81,11 @@ class predictive_frame_slack:
 
         # Define Reward
         r = 0
-        arrived_targets = 0
+        reward = 0
         # Define Delta t
         delta_t = 0
-        t = 0
-        slack = 0
-        slack_sum_list = []
         slack_total_sum = 0
+        flag = "success"
         for i in range(self.num_steps):
 
             if self.disturbance and robot.X[1]>3.5 and robot.X[0] > -2*self.disturb_std and robot.X[0] < 2*self.disturb_std:
@@ -104,7 +114,7 @@ class predictive_frame_slack:
 
             h2 = (self.y_max - robot.X[1])[0]
             robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
-            robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + self.beta_list[0]*h2 - np.array([0,1]).reshape(1,2)@robot.f()
+            robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + self.beta_value*h2 - np.array([0,1]).reshape(1,2)@robot.f()
 
             for j in range(0,len(self.obstacle_list)):
                 obs_x_r = self.obstacle_list[j,:].reshape(2,1)
@@ -112,7 +122,7 @@ class predictive_frame_slack:
                 h_obs = -h_obs
                 dh_obs_dx = -dh_obs_dx
                 robot.A1_hard[j+2,:] = -dh_obs_dx@robot.g()
-                robot.b1_hard[j+2] = dh_obs_dx@robot.f() + self.beta_list[0]*h_obs + dh_obs_dx@robot.g()@u_d.value
+                robot.b1_hard[j+2] = dh_obs_dx@robot.f() + self.beta_value*h_obs + dh_obs_dx@robot.g()@u_d.value
 
             A1_clf.value = robot.A1_soft
             b1_clf.value = robot.b1_soft
@@ -122,127 +132,121 @@ class predictive_frame_slack:
             b1_hard.value = robot.b1_hard[1:,:].reshape(-1,1)
             u1_ref.value = robot.nominal_input(x_r)
             
-            constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
+            try:
+                constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                u_next = u1.value + u_d.value
+                robot.step(u_next)
+            except:
+                relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                flag = "fail"
 
-            u_next = u1.value + u_d.value
-            robot.step(u_next)
-            if slack_constraints_soft.value[0][0] > self.eps:
-                slack += slack_constraints_soft.value[0][0]
-                slack_total_sum += slack_constraints_soft.value[0][0]
+            if constrained_controller.status != "optimal":
+                relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                flag = "fail"
 
-            for hard_slack_idx in range(self.num_constraints_hard):
-                if slack_constraints_hard.value[hard_slack_idx] > self.eps:
-                    slack_total_sum += slack_constraints_hard.value[hard_slack_idx] 
-            
             delta_t += self.dt
-            t += self.dt
 
-            if slack_total_sum >= self.slack_thresh:
-                slack_sum_i = copy.deepcopy(slack)
-                slack = 0
-                slack_sum_list.append(slack_sum_i)
+            if (h1 < 0) and (delta_t>self.delta_t_limit):
+                relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                flag = "fail"
+
+            if flag == "fail":
+                if slack_constraints_soft.value[0][0] > self.eps:
+                    slack_total_sum = slack_constraints_soft.value[0][0]
+
+                for hard_slack_idx in range(self.num_constraints_hard):
+                    if slack_constraints_hard.value[hard_slack_idx] > self.eps:
+                        slack_total_sum += slack_constraints_hard.value[hard_slack_idx][0]
+
+                reward = 0
+                r = slack_total_sum
                 break
 
-            if ((h1 >= 0) and (delta_t<self.delta_t_limit)) or ((h1 < 0) and (delta_t>self.delta_t_limit)):
-                if (h1 >= 0) and (delta_t<self.delta_t_limit):
-                    arrived_targets += 1
-                slack_sum_i = copy.deepcopy(slack)
-                slack = 0
-                slack_sum_list.append(slack_sum_i)
+            if ((h1 >= 0) and (delta_t<self.delta_t_limit)):
                 if self.x_r_id == len(self.x_r_list)-1:
                     break
+                if (h1 >= 0) and (delta_t<self.delta_t_limit):
+                    reward += self.reward_list[self.x_r_id]
                 self.x_r_id += 1
                 delta_t = 0
             else:
                 continue
 
-        hold_idx = []
-        for k in range(len(slack_sum_list)):
-            if slack_sum_list[k] > self.eps:
-                hold_idx.append(k)
+        return r, reward
 
-        r = slack_total_sum
-
-        return hold_idx, r, arrived_targets
-
-def fitness_score_slack(comb, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, \
-                  beta_value, obstacle_list, dt, disturbance, disturb_std, disturb_max,\
-                  num_constraints_hard, fitness_score_table, flag):
+def fitness_score_slack(comb, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                  obstacle_list, dt, disturbance, disturb_std, disturb_max,\
+                  num_constraints_hard, fitness_score_table, mode):
     
     if fitness_score_table.get(tuple(comb)) != None:
-        if flag == 'deterministic':
-            score, hold_set, arrived_targets = fitness_score_table.get(tuple(comb))
-            return score, hold_set, arrived_targets, fitness_score_table
+        if mode == 'deterministic':
+            score, active_set, reward = fitness_score_table.get(tuple(comb))
+            return score, active_set, reward, fitness_score_table
         else:
-            score, raw_score, arrived_targets = fitness_score_table.get(tuple(comb))
-            return score, raw_score, arrived_targets, fitness_score_table
+            score, raw_score, reward = fitness_score_table.get(tuple(comb))
+            return score, raw_score, reward, fitness_score_table
 
     num_states = len(x_r_list)    
-    item_weight = 2.0
+    reward_weight = 0.01
     x_r_list_comb = []
     radii_comb = []
     alpha_list_comb = []
-    active_idx = []
+    reward_list_comb = []
+    active_set = []
     for i in range(num_states):
         if comb[i] == 1:
-            active_idx.append(i)
+            active_set.append(i)
             x_r_list_comb.append(x_r_list[i])
             radii_comb.append(radius_list[i])
             alpha_list_comb.append(alpha_list[i])
+            reward_list_comb.append(reward_list[i])
 
-    hold_set = []
     if (len(x_r_list_comb)>0):
-        pred_frame = predictive_frame_slack(x0,dt,time_horizon,U_max,num_constraints_hard=num_constraints_hard,beta_list=np.array([beta_value]), \
+        pred_frame = predictive_frame_slack(x0,dt,time_horizon,U_max,num_constraints_hard=num_constraints_hard,reward_list=reward_list_comb, \
                                     x_r_list=x_r_list_comb, radius_list=radii_comb, alpha_list=alpha_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
-        hold_idx, score, arrived_targets = pred_frame.forward()
-        zeros_count = num_states - arrived_targets
+        score, reward = pred_frame.forward()
     else:
-        hold_idx = []
-        arrived_targets = 1
-        zeros_count = num_states - 1
-
-    if flag != 'deterministic':
+        reward = 0
+    if mode != 'deterministic':
         raw_score = copy.deepcopy(score)
-        score += zeros_count*item_weight
-        fitness_score_table.update({tuple(comb): [score, raw_score, arrived_targets]})
-        return score, raw_score, arrived_targets, fitness_score_table
+        #score += (reward_max-reward)*reward_weight
+        score = (reward_max-reward)
+        fitness_score_table.update({tuple(comb): [score, raw_score, reward]})
+        return score, raw_score, reward, fitness_score_table
     
-    for i in range(len(hold_idx)):
-        hold_set.append(active_idx[hold_idx[i]])
-    fitness_score_table.update({tuple(comb): [score, hold_set, arrived_targets]})
-    return score, hold_set, arrived_targets, fitness_score_table
+    fitness_score_table.update({tuple(comb): [score, active_set, reward]})
+    return score, active_set, reward, fitness_score_table
 
-def deterministic_chinneck_1(x0, x_r_list, time_horizon, radius_list, alpha_list, U_max, beta_value, obstacle_list, dt, \
+def deterministic_chinneck_1(x0, x_r_list, time_horizon, reward_max, radius_list, alpha_list, reward_list, U_max, obstacle_list, dt, \
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
     
     init_comb = np.ones(shape=(len(x_r_list)))
-    eps = 5.0
+    eps = 1.0e-5
     fitness_score_table = {}
-    min_r, hold_set, arrived_targets,fitness_score_table = fitness_score_slack(init_comb, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
-                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, flag='deterministic')
+    min_r, active_set, reward, fitness_score_table = fitness_score_slack(init_comb, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, \
+                                    U_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, mode='deterministic')
     best_comb = init_comb
     while abs(min_r) > eps:
         min_r = 1.0e5
-        for i in range(len(hold_set)):
-            if hold_set[i]!=len(x_r_list)-1:
+        for i in range(len(active_set)):
+            if active_set[i]!=len(x_r_list)-1:
                 temp_comb = copy.deepcopy(best_comb)
-                temp_comb[hold_set[i]] = 0
-                r, temp_hold_set, arrived_targets_temp,fitness_score_table = fitness_score_slack(temp_comb, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
-                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, flag='deterministic')
+                temp_comb[active_set[i]] = 0
+                r, temp_active_set, reward_temp,fitness_score_table = fitness_score_slack(temp_comb, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, \
+                                    U_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, mode='deterministic')
                 if r <= min_r:
                     min_r = r
-                    candidate_idx = hold_set[i]
-                    candidate_hold_set = temp_hold_set
-                    arrived_targets = arrived_targets_temp
-        if hold_set[0]==len(x_r_list)-1:
-            arrived_targets = 1
+                    candidate_idx = active_set[i]
+                    candidate_active_set = temp_active_set
+                    reward = reward_temp
+        if active_set[0]==len(x_r_list)-1:
+            reward = 0
             break
         best_comb[candidate_idx] = 0
-        hold_set = candidate_hold_set
-        
+        active_set = candidate_active_set        
     iteration = 1
-    return iteration, best_comb, arrived_targets
+    return iteration, best_comb, reward
 
 def rand_list_init(num_states, idx):
     l = np.ones(shape=(num_states,))
@@ -266,7 +270,7 @@ def mutate_process(comb, mutation_rate):
             mutated_comb.append(comb[i])
     return mutated_comb
 
-def genetic_comb_slack(x0, x_r_list, time_horizon, radius_list, alpha_list, U_max, beta_value, obstacle_list, dt, \
+def genetic_comb_slack(x0, x_r_list, time_horizon, reward_max, radius_list, alpha_list, reward_list, U_max, obstacle_list, dt, \
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
 
     num_states = len(x_r_list)-1
@@ -280,20 +284,20 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, radius_list, alpha_list, U_ma
     
     comb_1_appended = copy.deepcopy(comb_1)
     comb_1_appended.append(1)
-    score_1, raw_score_1, arrived_targets1, fitness_score_table = fitness_score_slack(comb_1_appended , x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_1, raw_score_1, reward_1, fitness_score_table = fitness_score_slack(comb_1_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
     comb_2_appended = copy.deepcopy(comb_2)
     comb_2_appended.append(1)
-    score_2, raw_score_2, arrived_targets2, fitness_score_table = fitness_score_slack(comb_2_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_2, raw_score_2, reward_2, fitness_score_table = fitness_score_slack(comb_2_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
     comb_3_appended = copy.deepcopy(comb_3)
     comb_3_appended.append(1)
-    score_3, raw_score_3, arrived_targets3, fitness_score_table = fitness_score_slack(comb_3_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_3, raw_score_3, reward_3, fitness_score_table = fitness_score_slack(comb_3_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
     comb_4_appended = copy.deepcopy(comb_4)
     comb_4_appended.append(1)    
     
-    score_4, raw_score_4, arrived_targets4, fitness_score_table = fitness_score_slack(comb_4_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
+    score_4, raw_score_4, reward_4, fitness_score_table = fitness_score_slack(comb_4_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
     
     fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
@@ -302,13 +306,12 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, radius_list, alpha_list, U_ma
     fit_min = np.min(fit_all)
     comb_min = comb_all[np.argmin(fit_all)].tolist()
     raw_score_all = np.array([raw_score_1, raw_score_2, raw_score_3, raw_score_4]).reshape(4,)
-    arrived_targets_all = np.array([arrived_targets1, arrived_targets2, arrived_targets3, arrived_targets4]).reshape(4,)
+    reward_all = np.array([reward_1, reward_2, reward_3, reward_4]).reshape(4,)
     raw_score_min = raw_score_all[np.argmin(fit_all)]
-    arrived_targets = arrived_targets_all[np.argmin(fit_all)]
+    reward = reward_all[np.argmin(fit_all)]
 
     mutation_rate = 0.3
     epsilon = 1e-5
-    eps = 5.0
     no_viable_sol = True
     iteration = 1
 
@@ -334,36 +337,36 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, radius_list, alpha_list, U_ma
 
             comb_1_appended = copy.deepcopy(comb_1)
             comb_1_appended.append(1)        
-            score_1, raw_score_1, arrived_targets1, fitness_score_table = fitness_score_slack(comb_1_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
-                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table, 'evolve')
+            score_1, raw_score_1, reward_1, fitness_score_table = fitness_score_slack(comb_1_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
             comb_2_appended = copy.deepcopy(comb_2)
             comb_2_appended.append(1)
-            score_2, raw_score_2, arrived_targets2, fitness_score_table = fitness_score_slack(comb_2_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
-                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table, 'evolve')
+            score_2, raw_score_2, reward_2, fitness_score_table = fitness_score_slack(comb_2_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
             comb_3_appended = copy.deepcopy(comb_3)
             comb_3_appended.append(1)
-            score_3, raw_score_3, arrived_targets3, fitness_score_table = fitness_score_slack(comb_3_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
-                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table, 'evolve')
+            score_3, raw_score_3, reward_3, fitness_score_table = fitness_score_slack(comb_3_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
             comb_4_appended = copy.deepcopy(comb_4)
             comb_4_appended.append(1)
-            score_4, raw_score_4, arrived_targets4, fitness_score_table = fitness_score_slack(comb_4_appended, x0, time_horizon, x_r_list, radius_list, alpha_list, U_max, beta_value, \
-                                        obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard,fitness_score_table, 'evolve')
+            score_4, raw_score_4, reward_4, fitness_score_table = fitness_score_slack(comb_4_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
 
             fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
             raw_score_all = np.array([raw_score_1, raw_score_2, raw_score_3, raw_score_4]).reshape(4,)
-            arrived_targets_all = np.array([arrived_targets1, arrived_targets2, arrived_targets3, arrived_targets4]).reshape(4,)
+            reward_all = np.array([reward_1, reward_2, reward_3, reward_4]).reshape(4,)
 
             if (fit_all.min()<fit_min):
                 fit_min = fit_all.min()
                 comb_min = comb_all[np.argmin(fit_all)].tolist()
                 raw_score_min = raw_score_all[np.argmin(fit_all)]
-                arrived_targets = arrived_targets_all[np.argmin(fit_all)]
+                reward = reward_all[np.argmin(fit_all)]
 
         print("raw score min: ", raw_score_min)
-        if raw_score_min < eps:
+        if raw_score_min < epsilon:
             no_viable_sol = False
         else:
             iteration += 1
 
     comb_min.append(1)
-    return iteration, comb_min, arrived_targets
+    return iteration, comb_min, reward
