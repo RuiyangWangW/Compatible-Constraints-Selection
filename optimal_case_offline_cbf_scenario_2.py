@@ -17,7 +17,7 @@ from predictive_frame_scenario_2 import *
 t_start = time.perf_counter()
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
-dt = 0.1
+dt = 0.2
 t = 0
 tf = 60
 num_steps = int(tf/dt)
@@ -25,7 +25,6 @@ num_steps = int(tf/dt)
 # Define Parameters for CLF and CBF
 U_max = 1.0
 d_max = 0.6
-beta_list = [0.6]
 alpha_clf = 0.4
 num_constraints_soft1 = 1
 num_constraints_clf = 1
@@ -109,7 +108,7 @@ ax.axis('equal')
 #Define Disturbance
 disturbance = True
 disturb_std = 1.5
-disturb_max = 6.0 * U_max
+disturb_max = 4.0 * U_max
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
 y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std) * disturb_max + 3.5
@@ -133,9 +132,9 @@ best_reward = 0
 reward_list = [1,1,1,1,1,1,1,1]
 x0 = np.array([5.0,0.0])
 
-#for idx, comb in enumerate(all_comb):
-if (True):
-    comb = [1,1,0,0,0,1,0,1]
+for idx, comb in enumerate(all_comb):
+#if (True):
+#    comb = [1,1,0,0,0,1,0,1]
     x_r_list = []
     radius_list = []
     alpha_list_comb = []
@@ -166,10 +165,10 @@ if (True):
         y_list = y_list_comb
         t_list = t_list_comb
         best_reward = reward
-        #best_idx = idx
+        best_idx = idx
         
-#best_comb = all_comb[best_idx]
-best_comb = comb
+best_comb = all_comb[best_idx]
+#best_comb = comb
 print("best_reward: ", best_reward)
 print("Time Used: ", time.perf_counter()-t_start)
 x_r_list = []

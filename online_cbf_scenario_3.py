@@ -12,22 +12,22 @@ from robot_models.SingleIntegrator2D import *
 from Safe_Set_Series import *
 from matplotlib.animation import FFMpegWriter
 from Trajectory_Model import *
-from predictive_frame_scenario_2 import *
-from predictive_frame_slack_scenario_2 import *
+from predictive_frame_scenario_3 import *
+from predictive_frame_slack_scenario_3 import *
 
 t_start = time.perf_counter()
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.1
 t = 0
-tf = 50
+tf = 80
 num_steps = int(tf/dt)
 
 # Define Parameters for CLF and CBF
 U_max = 1.0
-d_max = 0.6
-beta_value = 0.4
-alpha_clf = 0.4
+d_max = 0.4
+beta_value = 2.0
+alpha_clf = 0.8
 num_constraints_soft1 = 1
 num_constraints_clf = 1
 # Plot                  
@@ -41,34 +41,52 @@ ax = plt.axes(xlim=(x_min,x_max),ylim=(y_min,y_max+2))
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 # Define Series of Safe Sets
-num_points = 9
+num_points = 15
 centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
 centroids[0][0] = 4.5
 centroids[0][1] = 1.0
 
-centroids[1][0] = 3.0
-centroids[1][1] = 3.0
+centroids[1][0] = 3.8
+centroids[1][1] = 2.3
 
-centroids[2][0] = 2.5
-centroids[2][1] = 5.0
+centroids[2][0] = 3.2
+centroids[2][1] = 3.8
 
+centroids[3][0] = 2.0
 centroids[3][1] = 5.0
-centroids[3][0] = 0
 
-centroids[4][0] = -2.5
+centroids[4][0] = 0.8
 centroids[4][1] = 5.0
 
-centroids[5][0] = -1.5
-centroids[5][1] = 3.0
+centroids[5][0] = -0.8
+centroids[5][1] = 5.0
 
-centroids[6][0] = centroids[3][0]
-centroids[6][1] = 0
+centroids[6][0] = -2.0
+centroids[6][1] = 5.0
 
-centroids[7][0] = -4.0
-centroids[7][1] = 0.0
+centroids[7][0] = -1.4
+centroids[7][1] = 4.0
 
-centroids[8][0] = -4.0
-centroids[8][1] = 3.0
+centroids[8][0] = -0.6
+centroids[8][1] = 2.6
+
+centroids[9][0] = 0.2
+centroids[9][1] = 1.3
+
+centroids[10][0] = 0.0
+centroids[10][1] = 0.0
+
+centroids[11][0] = -1.0
+centroids[11][1] = 0.0
+
+centroids[12][0] = -3.0
+centroids[12][1] = 0.0
+
+centroids[13][0] = -3.8
+centroids[13][1] = 1.0
+
+centroids[14][0] = -4.0
+centroids[14][1] = 2.0
 
 rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
 # Add the patch to the Axes
@@ -98,7 +116,10 @@ radii = np.zeros((centroids.shape[0],))+d_max
 alpha_list = np.zeros((centroids.shape[0],))+0.4
 Safe_Set_Series = Safe_Set_Series2D(centroids=centroids,radii=radii,alpha_list=alpha_list)
 
-reward_list = np.array([1,1,1,1,1,1,1,1,0])
+#reward_list = np.array([4,4,4,4,4,2,2,2,2,2,1,1,1,1,0])
+#reward_list = np.array([1,1,1,1,1,2,2,2,2,2,4,4,4,4,0])
+reward_list = np.array([1,2,3,4,1,2,3,4,1,2,3,2,1,2,0])
+
 reward_max = np.sum(reward_list)
 
 for i in range(0,centroids.shape[0]):
@@ -112,7 +133,7 @@ ax.axis('equal')
 #Define Disturbance
 disturbance = True
 disturb_std = 1.5
-disturb_max = 2.0 * U_max
+disturb_max = 6.0 * U_max
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
 y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std) * disturb_max + 3.5
@@ -130,7 +151,7 @@ movie_name = 'series_of_safesets_small_wind_cbf_online.mp4'
 best_idx = 0
 best_reward = 0
 
-x0 = np.array([5.0,0.0])
+x0 = np.array([6.0,1.0])
 
 total_reward = 0
 total_iter = 0
@@ -153,6 +174,7 @@ for i in range(1):
     total_iter += num_iter
     print('Reward: ', reward )
     print('Time (s): ', time.perf_counter()-t_start)
+    print('Iteration: ', iteration)
 
 print('Average Reward: ', total_reward/10.0)
 print('Average Iter: ', total_iter/10.0)
@@ -197,8 +219,6 @@ x_r_id = 0
 delta_t = 0
 flag = "success"
 for i in range(num_steps):
-
-    
     # Define Disturbance 
     u_d = cp.Parameter((2,1), value = np.zeros((2,1)))
     # Define Delta t

@@ -89,12 +89,8 @@ class predictive_frame_slack:
         for i in range(self.num_steps):
 
             if self.disturbance and robot.X[1]>3.5 and robot.X[0] > -2*self.disturb_std and robot.X[0] < 2*self.disturb_std:
-                y_disturb = norm.pdf(self.robot.X[0], loc=0, scale=self.disturb_std)[0] * self.disturb_max
+                y_disturb = norm.pdf(robot.X[0], loc=0, scale=self.disturb_std)[0] * self.disturb_max
                 x_disturb = 0.0
-            elif self.disturbance and robot.X[0]>-0.5 and robot.X[0] < 1.8\
-                and robot.X[1] > -2*(self.disturb_std*0.5) and robot.X[1] < 2*(self.disturb_std*0.5):
-                x_disturb = norm.pdf(self.robot.X[1], loc=0, scale=self.disturb_std*0.5)[0] * self.disturb_max
-                y_disturb = 0.0
             else:
                 x_disturb = 0.0
                 y_disturb = 0.0
@@ -140,17 +136,15 @@ class predictive_frame_slack:
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 flag = "fail"
 
-            if constrained_controller.status != "optimal" and constrained_controller.status != "optimal_inaccurate":
+            if constrained_controller.status != "optimal":
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 flag = "fail"
 
             delta_t += self.dt
 
-
-            if delta_t>self.delta_t_limit:
+            if (h1 < 0) and (delta_t>self.delta_t_limit):
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 flag = "fail"
-
 
             if flag == "fail":
                 if slack_constraints_soft.value[0][0] > self.eps:
@@ -164,10 +158,11 @@ class predictive_frame_slack:
                 r = slack_total_sum
                 break
 
-            if (h1 >= 0):
+            if ((h1 >= 0) and (delta_t<self.delta_t_limit)):
                 if self.x_r_id == len(self.x_r_list)-1:
                     break
-                reward += self.reward_list[self.x_r_id]
+                if (h1 >= 0) and (delta_t<self.delta_t_limit):
+                    reward += self.reward_list[self.x_r_id]
                 self.x_r_id += 1
                 delta_t = 0
             else:

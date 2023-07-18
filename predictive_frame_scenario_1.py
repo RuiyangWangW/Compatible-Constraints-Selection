@@ -20,7 +20,7 @@ class predictive_frame_lag:
         self.alpha_list = alpha_list
         self.obstacle_list = obstacle_list
         self.reward_list = reward_list
-        self.beta_value = 0.4
+        self.beta_value = 0.6
         self.robot = SingleIntegrator2D(self.x0, self.dt, ax=None, id = 0, color='r', palpha=1.0, \
                                         num_constraints_hard = self.num_constraints_soft+self.num_constraints_hard,
                                         num_constraints_soft = self.num_constraints_clf, plot=False)
@@ -76,12 +76,8 @@ class predictive_frame_lag:
         for i in range(self.num_steps):
 
             if self.disturbance and robot.X[1]>3.5 and robot.X[0] > -2*self.disturb_std and robot.X[0] < 2*self.disturb_std:
-                y_disturb = norm.pdf(self.robot.X[0], loc=0, scale=self.disturb_std)[0] * self.disturb_max
+                y_disturb = norm.pdf(robot.X[0], loc=0, scale=self.disturb_std)[0] * self.disturb_max
                 x_disturb = 0.0
-            elif self.disturbance and robot.X[0]>-0.5 and robot.X[0] < 1.8\
-                and robot.X[1] > -2*(self.disturb_std*0.5) and robot.X[1] < 2*(self.disturb_std*0.5):
-                x_disturb = norm.pdf(self.robot.X[1], loc=0, scale=self.disturb_std*0.5)[0] * self.disturb_max
-                y_disturb = 0.0
             else:
                 x_disturb = 0.0
                 y_disturb = 0.0

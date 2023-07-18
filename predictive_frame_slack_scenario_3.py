@@ -29,7 +29,7 @@ class predictive_frame_slack:
         self.reward_list = reward_list
         self.x_r_id = 0
         self.alpha_clf = 0.8
-        self.beta_value = 0.6
+        self.beta_value = 1.5
         self.y_max = 6.0
         self.delta_t_limit = float(self.tf)/len(x_r_list)
         self.eps = 1e-5
@@ -146,7 +146,6 @@ class predictive_frame_slack:
 
             delta_t += self.dt
 
-
             if delta_t>self.delta_t_limit:
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 flag = "fail"
@@ -211,8 +210,8 @@ def fitness_score_slack(comb, x0, time_horizon, reward_max, x_r_list, radius_lis
         reward = 0
     if mode != 'deterministic':
         raw_score = copy.deepcopy(score)
-        #score += (reward_max-reward)*reward_weight
-        score = (reward_max-reward)
+        score += (reward_max-reward)*reward_weight
+        #score = (reward_max-reward)
         fitness_score_table.update({tuple(comb): [score, raw_score, reward]})
         return score, raw_score, reward, fitness_score_table
     
@@ -225,29 +224,30 @@ def deterministic_chinneck_1(x0, x_r_list, time_horizon, reward_max, radius_list
     init_comb = np.ones(shape=(len(x_r_list)))
     eps = 1.0e-5
     fitness_score_table = {}
-    min_r, active_set, reward, fitness_score_table = fitness_score_slack(init_comb, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, \
+    dropped_constraints = {}
+
+    min_r, active_set, best_reward, fitness_score_table = fitness_score_slack(init_comb, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, \
                                     U_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, mode='deterministic')
     best_comb = init_comb
     while abs(min_r) > eps:
         min_r = 1.0e5
-        for i in range(len(active_set)):
-            if active_set[i]!=len(x_r_list)-1:
+        for i in range(len(x_r_list)):
+            if i!=len(x_r_list)-1 and dropped_constraints.get(i)==None:
                 temp_comb = copy.deepcopy(best_comb)
                 temp_comb[active_set[i]] = 0
-                r, temp_active_set, reward_temp,fitness_score_table = fitness_score_slack(temp_comb, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, \
+                r, _, reward_temp,fitness_score_table = fitness_score_slack(temp_comb, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, \
                                     U_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, mode='deterministic')
                 if r <= min_r:
                     min_r = r
-                    candidate_idx = active_set[i]
-                    candidate_active_set = temp_active_set
-                    reward = reward_temp
-        if active_set[0]==len(x_r_list)-1:
-            reward = 0
-            break
+                    candidate_idx = i
+                    best_reward = reward_temp
+        dropped_constraints.update({candidate_idx: True})
         best_comb[candidate_idx] = 0
-        active_set = candidate_active_set        
+        if len(dropped_constraints) == len(x_r_list):
+            best_reward = 0
+            break
     iteration = 1
-    return iteration, best_comb, reward
+    return iteration, best_comb, best_reward
 
 def rand_list_init(num_states, idx):
     l = np.ones(shape=(num_states,))
@@ -280,6 +280,10 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, reward_max, radius_list, alph
     comb_2 = rand_list_init(num_states,3)
     comb_3 = rand_list_init(num_states,4)
     comb_4 = rand_list_init(num_states,6)
+    comb_5 = rand_list_init(num_states,2)
+    comb_6 = rand_list_init(num_states,3)
+    comb_7 = rand_list_init(num_states,4)
+    comb_8 = rand_list_init(num_states,6)
 
     fitness_score_table = {}
     
@@ -297,17 +301,36 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, reward_max, radius_list, alph
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
     comb_4_appended = copy.deepcopy(comb_4)
     comb_4_appended.append(1)    
-    
     score_4, raw_score_4, reward_4, fitness_score_table = fitness_score_slack(comb_4_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
     
-    fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
+    comb_5_appended = copy.deepcopy(comb_5)
+    comb_5_appended.append(1)
+    score_5, raw_score_5, reward_5, fitness_score_table = fitness_score_slack(comb_5_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+    comb_6_appended = copy.deepcopy(comb_6)
+    comb_6_appended.append(1)
+    score_6, raw_score_6, reward_6, fitness_score_table = fitness_score_slack(comb_6_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+    comb_7_appended = copy.deepcopy(comb_7)
+    comb_7_appended.append(1)
+    score_7, raw_score_7, reward_7, fitness_score_table = fitness_score_slack(comb_7_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+    comb_8_appended = copy.deepcopy(comb_8)
+    comb_8_appended.append(1)    
+    score_8, raw_score_8, reward_8, fitness_score_table = fitness_score_slack(comb_8_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+    
+    raw_score_all = np.array([raw_score_1, raw_score_2, raw_score_3, raw_score_4, raw_score_5, raw_score_6, raw_score_7, raw_score_8])
 
-    comb_all = np.array([comb_1,comb_2,comb_3,comb_4])
+    fit_all = np.array([score_1, score_2, score_3, score_4, score_5, score_6, score_7, score_8]).reshape(-1,)
+
+    comb_all = np.array([comb_1,comb_2,comb_3,comb_4,comb_5,comb_6,comb_7,comb_8])
+    
+    reward_all = np.array([reward_1, reward_2, reward_3, reward_4, reward_5, reward_6, reward_7, reward_8]).reshape(-1,)
+    
     fit_min = np.min(fit_all)
     comb_min = comb_all[np.argmin(fit_all)].tolist()
-    raw_score_all = np.array([raw_score_1, raw_score_2, raw_score_3, raw_score_4]).reshape(4,)
-    reward_all = np.array([reward_1, reward_2, reward_3, reward_4]).reshape(4,)
     raw_score_min = raw_score_all[np.argmin(fit_all)]
     reward = reward_all[np.argmin(fit_all)]
 
@@ -321,7 +344,7 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, reward_max, radius_list, alph
             p = ((1/(fit_all+epsilon)) / np.sum(1/(fit_all+epsilon))).reshape(-1,)
             new_states = np.zeros(comb_all.shape)
             for j in range(0,4):
-                new_states[j,:] = comb_all[np.random.choice(a=np.array([0,1,2,3]),p=p)]
+                new_states[j,:] = comb_all[np.random.choice(a=np.array([0,1,2,3,4,5,6,7]),p=p)]
             first_split = random.randint(0, num_states)
             comb_1 = np.hstack((new_states[0][0:first_split],new_states[1][first_split:]))
             comb_1 = mutate_process(comb_1,mutation_rate)
@@ -334,7 +357,17 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, reward_max, radius_list, alph
             comb_4 = np.hstack((new_states[3][0:second_split],new_states[2][second_split:]))
             comb_4 = mutate_process(comb_4,mutation_rate)
 
-            comb_all = np.array([comb_1,comb_2,comb_3,comb_4])
+            third_split = random.randint(0, num_states)
+            comb_5 = np.hstack((new_states[4][0:third_split],new_states[5][third_split:]))
+            comb_5 = mutate_process(comb_5,mutation_rate)
+            comb_6 = np.hstack((new_states[5][0:third_split],new_states[4][third_split:]))
+            comb_6 = mutate_process(comb_6,mutation_rate)
+
+            forth_split = random.randint(0, num_states)
+            comb_7 = np.hstack((new_states[6][0:forth_split],new_states[7][forth_split:]))
+            comb_7 = mutate_process(comb_7,mutation_rate)
+            comb_8 = np.hstack((new_states[7][0:forth_split],new_states[6][forth_split:]))
+            comb_8 = mutate_process(comb_8,mutation_rate)
 
             comb_1_appended = copy.deepcopy(comb_1)
             comb_1_appended.append(1)        
@@ -352,10 +385,31 @@ def genetic_comb_slack(x0, x_r_list, time_horizon, reward_max, radius_list, alph
             comb_4_appended.append(1)
             score_4, raw_score_4, reward_4, fitness_score_table = fitness_score_slack(comb_4_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+            
+            comb_5_appended = copy.deepcopy(comb_5)
+            comb_5_appended.append(1)
+            score_5, raw_score_5, reward_5, fitness_score_table = fitness_score_slack(comb_5_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+            comb_6_appended = copy.deepcopy(comb_6)
+            comb_6_appended.append(1)
+            score_6, raw_score_6, reward_6, fitness_score_table = fitness_score_slack(comb_6_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+            comb_7_appended = copy.deepcopy(comb_7)
+            comb_7_appended.append(1)
+            score_7, raw_score_7, reward_7, fitness_score_table = fitness_score_slack(comb_7_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
+            comb_8_appended = copy.deepcopy(comb_8)
+            comb_8_appended.append(1)    
+            score_8, raw_score_8, reward_8, fitness_score_table = fitness_score_slack(comb_8_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, 'evolve')
 
-            fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
-            raw_score_all = np.array([raw_score_1, raw_score_2, raw_score_3, raw_score_4]).reshape(4,)
-            reward_all = np.array([reward_1, reward_2, reward_3, reward_4]).reshape(4,)
+            raw_score_all = np.array([raw_score_1, raw_score_2, raw_score_3, raw_score_4, raw_score_5, raw_score_6, raw_score_7, raw_score_8])
+
+            fit_all = np.array([score_1, score_2, score_3, score_4, score_5, score_6, score_7, score_8]).reshape(-1,)
+
+            comb_all = np.array([comb_1,comb_2,comb_3,comb_4,comb_5,comb_6,comb_7,comb_8])
+
+            reward_all = np.array([reward_1, reward_2, reward_3, reward_4, reward_5, reward_6, reward_7, reward_8]).reshape(-1,)
 
             if (fit_all.min()<fit_min):
                 fit_min = fit_all.min()

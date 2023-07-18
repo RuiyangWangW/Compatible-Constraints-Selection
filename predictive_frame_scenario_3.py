@@ -20,7 +20,7 @@ class predictive_frame_lag:
         self.alpha_list = alpha_list
         self.obstacle_list = obstacle_list
         self.reward_list = reward_list
-        self.beta_value = 0.4
+        self.beta_value = 1.5
         self.robot = SingleIntegrator2D(self.x0, self.dt, ax=None, id = 0, color='r', palpha=1.0, \
                                         num_constraints_hard = self.num_constraints_soft+self.num_constraints_hard,
                                         num_constraints_soft = self.num_constraints_clf, plot=False)
@@ -182,7 +182,8 @@ def fitness_score_lag(comb, x0, time_horizon, reward_max, x_r_list, radius_list,
         return flag, score, reward, fitness_score_table
 
     num_states = len(x_r_list)    
-    reward_weight = 0.01
+    #reward_weight = 0.01
+    reward_weight = 0.1
     x_r_list_comb = []
     radii_comb = []
     alpha_list_comb = []
@@ -228,6 +229,10 @@ def genetic_comb_lag(x0, x_r_list, time_horizon, reward_max, radius_list, alpha_
     comb_2 = rand_list_init(num_states,3)
     comb_3 = rand_list_init(num_states,4)
     comb_4 = rand_list_init(num_states,6)
+    comb_5 = rand_list_init(num_states,2)
+    comb_6 = rand_list_init(num_states,3)
+    comb_7 = rand_list_init(num_states,4)
+    comb_8 = rand_list_init(num_states,6)
 
     fitness_score_table = {}
     
@@ -248,13 +253,30 @@ def genetic_comb_lag(x0, x_r_list, time_horizon, reward_max, radius_list, alpha_
     flag_4, score_4, reward_4,fitness_score_table = fitness_score_lag(comb_4_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                     obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     
-    flag_all = np.array([flag_1, flag_2, flag_3, flag_4])
-
-    fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
-
-    comb_all = np.array([comb_1,comb_2,comb_3,comb_4])
+    comb_5_appended = copy.deepcopy(comb_5)
+    comb_5_appended.append(1)
+    flag_5, score_5, reward_5,fitness_score_table = fitness_score_lag(comb_5_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+    comb_6_appended = copy.deepcopy(comb_6)
+    comb_6_appended.append(1)
+    flag_6, score_6, reward_6,fitness_score_table = fitness_score_lag(comb_6_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+    comb_7_appended = copy.deepcopy(comb_7)
+    comb_7_appended.append(1)
+    flag_7, score_7, reward_7,fitness_score_table = fitness_score_lag(comb_7_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+    comb_8_appended = copy.deepcopy(comb_8)
+    comb_8_appended.append(1)    
+    flag_8, score_8, reward_8,fitness_score_table = fitness_score_lag(comb_8_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                    obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     
-    reward_all = np.array([reward_1, reward_2, reward_3, reward_4]).reshape(4,)
+    flag_all = np.array([flag_1, flag_2, flag_3, flag_4, flag_5, flag_6, flag_7, flag_8])
+
+    fit_all = np.array([score_1, score_2, score_3, score_4, score_5, score_6, score_7, score_8]).reshape(-1,)
+
+    comb_all = np.array([comb_1,comb_2,comb_3,comb_4,comb_5,comb_6,comb_7,comb_8])
+    
+    reward_all = np.array([reward_1, reward_2, reward_3, reward_4, reward_5, reward_6, reward_7, reward_8]).reshape(-1,)
     
     fit_min = np.min(fit_all)
     flag_temp = flag_all[np.argmin(fit_all)]
@@ -272,7 +294,7 @@ def genetic_comb_lag(x0, x_r_list, time_horizon, reward_max, radius_list, alpha_
             p = ((1/(fit_all+epsilon)) / np.sum(1/(fit_all+epsilon))).reshape(-1,)
             new_states = np.zeros(comb_all.shape)
             for j in range(0,4):
-                new_states[j,:] = comb_all[np.random.choice(a=np.array([0,1,2,3]),p=p)]
+                new_states[j,:] = comb_all[np.random.choice(a=np.array([0,1,2,3,4,5,6,7]),p=p)]
             first_split = random.randint(0, num_states)
             comb_1 = np.hstack((new_states[0][0:first_split],new_states[1][first_split:]))
             comb_1 = mutate_process(comb_1,mutation_rate)
@@ -284,6 +306,18 @@ def genetic_comb_lag(x0, x_r_list, time_horizon, reward_max, radius_list, alpha_
             comb_3 = mutate_process(comb_3,mutation_rate)
             comb_4 = np.hstack((new_states[3][0:second_split],new_states[2][second_split:]))
             comb_4 = mutate_process(comb_4,mutation_rate)
+
+            third_split = random.randint(0, num_states)
+            comb_5 = np.hstack((new_states[4][0:third_split],new_states[5][third_split:]))
+            comb_5 = mutate_process(comb_5,mutation_rate)
+            comb_6 = np.hstack((new_states[5][0:third_split],new_states[4][third_split:]))
+            comb_6 = mutate_process(comb_6,mutation_rate)
+
+            forth_split = random.randint(0, num_states)
+            comb_7 = np.hstack((new_states[6][0:forth_split],new_states[7][forth_split:]))
+            comb_7 = mutate_process(comb_7,mutation_rate)
+            comb_8 = np.hstack((new_states[7][0:forth_split],new_states[6][forth_split:]))
+            comb_8 = mutate_process(comb_8,mutation_rate)
 
             comb_1_appended = copy.deepcopy(comb_1)
             comb_1_appended.append(1)
@@ -302,10 +336,30 @@ def genetic_comb_lag(x0, x_r_list, time_horizon, reward_max, radius_list, alpha_
             flag_4, score_4, reward_4,fitness_score_table = fitness_score_lag(comb_4_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
                                             obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
 
-            flag_all = np.array([flag_1, flag_2, flag_3, flag_4])
-            fit_all = np.array([score_1, score_2, score_3, score_4]).reshape(4,)
-            comb_all = np.array([comb_1,comb_2,comb_3,comb_4])
-            reward_all = np.array([reward_1, reward_2, reward_3, reward_4]).reshape(4,)
+            comb_5_appended = copy.deepcopy(comb_5)
+            comb_5_appended.append(1)
+            flag_5, score_5, reward_5,fitness_score_table = fitness_score_lag(comb_5_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+            comb_6_appended = copy.deepcopy(comb_6)
+            comb_6_appended.append(1)
+            flag_6, score_6, reward_6,fitness_score_table = fitness_score_lag(comb_6_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+            comb_7_appended = copy.deepcopy(comb_7)
+            comb_7_appended.append(1)
+            flag_7, score_7, reward_7,fitness_score_table = fitness_score_lag(comb_7_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+            comb_8_appended = copy.deepcopy(comb_8)
+            comb_8_appended.append(1)    
+            flag_8, score_8, reward_8,fitness_score_table = fitness_score_lag(comb_8_appended, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                                            obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+
+            flag_all = np.array([flag_1, flag_2, flag_3, flag_4, flag_5, flag_6, flag_7, flag_8])
+
+            fit_all = np.array([score_1, score_2, score_3, score_4, score_5, score_6, score_7, score_8]).reshape(-1,)
+
+            comb_all = np.array([comb_1,comb_2,comb_3,comb_4,comb_5,comb_6,comb_7,comb_8])
+
+            reward_all = np.array([reward_1, reward_2, reward_3, reward_4, reward_5, reward_6, reward_7, reward_8]).reshape(-1,)
             if (fit_all.min()<fit_min):
                 fit_min = fit_all.min()
                 flag_best = flag_all[np.argmin(fit_all)]
@@ -340,6 +394,7 @@ def deterministic_lag(x0, x_r_list, time_horizon, reward_max, radius_list, alpha
         best_comb[candidate_idx] = 0
         dropped_constraints.update({candidate_idx: True})
         if len(dropped_constraints) == len(x_r_list):
+            best_reward = 0
             break
     iteration = 1
     return iteration, best_comb, best_reward
