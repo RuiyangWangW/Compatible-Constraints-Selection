@@ -28,7 +28,7 @@ U_max = 1.0
 d_max = 0.6
 alpha_0 = 0.4
 alpha_clf = 0.4
-beta = 1.4
+beta = 1.8
 num_constraints_soft1 = 1
 num_constraints_clf = 1
 # Plot                  
@@ -44,12 +44,42 @@ ax.set_ylabel("Y")
 # Define Series of Safe Sets
 num_points = 7
 centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
+centroids[0][0] = 4.5
+centroids[0][1] = 1.0
+
+centroids[1][0] = 3.0
+centroids[1][1] = 3.0
+
+centroids[2][1] = 5.0
+centroids[2][0] = 0
+
+centroids[3][0] = -1.5
+centroids[3][1] = 3.0
+
+centroids[4][0] = centroids[2][0]
+centroids[4][1] = 0
+
+centroids[5][0] = -4.0
+centroids[5][1] = 0.0
+
+centroids[6][0] = -4.0
+centroids[6][1] = 3.0
 
 rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
 # Add the patch to the Axes
 ax.add_patch(rect)
-
-obstacle_list = np.array([])
+rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-3+0.2,stop=-0.6+0.2, step=0.4)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+1.2
+obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
+# Add the patch to the Axes
+ax.add_patch(rect)
+rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
+ax.add_patch(rect)
+obstacle_list_y_2 = np.arange(start=-1+0.2, stop=1.4+0.2, step=0.4)
+obstacle_list_x_2 = np.zeros(shape=obstacle_list_y_2.shape)+1.2
+obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
+obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
 
 num_constraints_hard1 = obstacle_list.shape[0] + 1
 
@@ -83,8 +113,11 @@ f_max_2 = f_max_1/0.5
 
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
-y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std) * disturb_max + 4.0
+y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 4.0
 ax.fill_between(x_disturb_1, y_disturb_1, 4.0, alpha=0.2, color='blue')
+y_disturb_2 = np.arange(start=-2*(disturb_std*0.5), stop=2*(disturb_std*0.5)+0.1, step=0.1)
+x_disturb_2 = norm.pdf(y_disturb_2, loc=0, scale=disturb_std*0.5)/f_max_2 * disturb_max - 0.5
+ax.fill_betweenx(y_disturb_2,x_disturb_2,-0.5, alpha=0.2, color='blue')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
 writer = FFMpegWriter(fps=15, metadata=metadata)
@@ -99,7 +132,7 @@ x0 = np.array([5.0,0.0])
 total_reward = 0
 total_iter = 0
 for i in range(1):
-    iteration, best_comb, best_traj, reward = genetic_comb_slack(scenario_num=1,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
+    iteration, best_comb, best_traj, reward = deterministic_lag(scenario_num=1,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
                                                               alpha_list=alpha_list, reward_list=reward_list, U_max = U_max, alpha_clf=alpha_clf, beta=beta, dt=dt, disturbance=disturbance, \
                                                             disturb_std=disturb_std, disturb_max=disturb_max, obstacle_list=obstacle_list, \
                                                             num_constraints_hard=num_constraints_hard1)

@@ -38,10 +38,42 @@ ax.set_ylabel("Y")
 # Define Series of Safe Sets
 num_points = 7
 centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
+centroids[0][0] = 4.5
+centroids[0][1] = 1.0
+
+centroids[1][0] = 3.0
+centroids[1][1] = 3.0
+
+centroids[2][1] = 5.0
+centroids[2][0] = 0
+
+centroids[3][0] = -1.5
+centroids[3][1] = 3.0
+
+centroids[4][0] = centroids[2][0]
+centroids[4][1] = 0
+
+centroids[5][0] = -4.0
+centroids[5][1] = 0.0
+
+centroids[6][0] = -4.0
+centroids[6][1] = 3.0
 
 rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
 # Add the patch to the Axes
 ax.add_patch(rect)
+rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-3+0.2,stop=-0.6+0.2, step=0.4)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+1.2
+obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
+# Add the patch to the Axes
+ax.add_patch(rect)
+rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
+ax.add_patch(rect)
+obstacle_list_y_2 = np.arange(start=-1+0.2, stop=1.4+0.2, step=0.4)
+obstacle_list_x_2 = np.zeros(shape=obstacle_list_y_2.shape)+1.2
+obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
+obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
 
 centroids_comb = []
 radii_comb = []
