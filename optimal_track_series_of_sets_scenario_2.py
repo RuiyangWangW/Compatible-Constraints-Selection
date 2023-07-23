@@ -77,7 +77,7 @@ centroids_comb = []
 radii_comb = []
 alpha_comb = []
 
-comb = [1,1,1,0,1,1,1,1,1]
+comb = [1,1,1,1,0,0,1,0,1]
 for i in range(num_points):
     if comb[i] == 1:
         centroids_comb.append(centroids[i,:])
@@ -96,19 +96,26 @@ for i in range(0,centroids_comb.shape[0]):
     else:
         circle = patches.Circle(centroids_comb[i,:], radius=d_max, color='red', zorder=10)
     ax.add_patch(circle)
-ax.axis('equal')
+circle = patches.Circle(centroids[4,:], radius=d_max, color='blue', zorder=0)
+ax.add_patch(circle)
+circle = patches.Circle(centroids[5,:], radius=d_max, color='blue', zorder=0)
+ax.add_patch(circle)
+circle = patches.Circle(centroids[7,:], radius=d_max, color='blue', zorder=0)
+ax.add_patch(circle)
 
 #Define Disturbance
 disturbance = True
+disturb_max = 1.5*U_max
 disturb_std = 1.5
-disturb_max = 4.0 * U_max
+f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
+f_max_2 = f_max_1/0.5
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
-y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std) * disturb_max + 3.5
+y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 3.5
 ax.fill_between(x_disturb_1, y_disturb_1, 3.5, alpha=0.2, color='blue')
 
 y_disturb_2 = np.arange(start=-2*(disturb_std*0.5), stop=2*(disturb_std*0.5)+0.1, step=0.1)
-x_disturb_2 = norm.pdf(y_disturb_2, loc=0, scale=disturb_std*0.5) * disturb_max - 0.6
+x_disturb_2 = norm.pdf(y_disturb_2, loc=0, scale=disturb_std*0.5)/f_max_2 * disturb_max - 0.6
 ax.fill_betweenx(y_disturb_2,x_disturb_2,-0.5, alpha=0.2, color='blue')
 
 metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!')
@@ -231,7 +238,7 @@ active_safe_set_id = 0
 final_path = []
 chosen_node = str(int((x0[0]-x_min)/step))+","+str(int((x0[1]-y_min)/step))
 
-delta_t_limit = float(tf)/num_points
+delta_t_limit = float(tf)/len(radii_comb)
 delta_t = 0
 max_iter = 1e5
 x_list = []
@@ -367,7 +374,8 @@ print(len(pos_in_success_table))
 #plt.plot(x_success_list,y_success_list,'b.')
 print(len(x_success_list))
 
-print('reward', reward)
+print('reward', reward-1)
+ax.axis('equal')
 im = ax.scatter(x_list,y_list,cmap='copper',c=t_list, zorder=100)
 cbar = plt.colorbar(im, ax=ax)
 cbar.set_label('time(s) colorbar')
