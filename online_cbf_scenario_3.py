@@ -118,7 +118,7 @@ radii = np.zeros((centroids.shape[0],))+d_max
 alpha_list = np.zeros((centroids.shape[0],))+alpha_0
 Safe_Set_Series = Safe_Set_Series2D(centroids=centroids,radii=radii,alpha_list=alpha_list)
 
-reward_list = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,0])
+reward_list = np.array([1,1,1,1,1,2,2,2,2,2,4,4,4,4,0])
 reward_max = np.sum(reward_list)
 
 for i in range(0,centroids.shape[0]):
@@ -131,15 +131,15 @@ ax.axis('equal')
 
 #Define Disturbance
 disturbance = True
-disturb_max = 0.9*U_max
+disturb_max = 1.5*U_max
 disturb_std = 1.5
 f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1/0.5
 
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
-y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 3.5
-ax.fill_between(x_disturb_1, y_disturb_1, 3.5, alpha=0.2, color='blue')
+y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 4.0
+ax.fill_between(x_disturb_1, y_disturb_1, 4.0, alpha=0.2, color='blue')
 
 y_disturb_2 = np.arange(start=-2*(disturb_std*0.5), stop=2*(disturb_std*0.5)+0.1, step=0.1)
 x_disturb_2 = norm.pdf(y_disturb_2, loc=0, scale=disturb_std*0.5)/f_max_2 * disturb_max - 0.5
@@ -158,7 +158,7 @@ x0 = np.array([5.0,0.0])
 total_reward = 0
 total_iter = 0
 for i in range(1):
-    iteration, best_comb, best_traj, reward = deterministic_chinneck_1(scenario_num=3,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
+    iteration, best_comb, best_traj, reward = genetic_comb_slack(scenario_num=3,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
                                                               alpha_list=alpha_list, reward_list=reward_list, U_max = U_max, alpha_clf=alpha_clf, beta=beta, dt=dt, disturbance=disturbance, \
                                                             disturb_std=disturb_std, disturb_max=disturb_max, obstacle_list=obstacle_list, \
                                                             num_constraints_hard=num_constraints_hard1)

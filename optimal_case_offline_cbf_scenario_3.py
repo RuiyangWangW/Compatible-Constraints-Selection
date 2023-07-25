@@ -16,7 +16,7 @@ from predictive_frame_lag import *
 
 t_start = time.perf_counter()
 plt.rcParams.update({'font.size': 15}) #27
-scenario_num = 2
+scenario_num = 3
 # Sim Parameters                  
 dt = 0.1
 t = 0
@@ -128,14 +128,14 @@ ax.axis('equal')
 
 #Define Disturbance
 disturbance = True
-disturb_max = 1.5*U_max
+disturb_max = 0.9*U_max
 disturb_std = 1.5
 f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1/0.5
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
-y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 3.5
-ax.fill_between(x_disturb_1, y_disturb_1, 3.5, alpha=0.2, color='blue')
+y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 4.0
+ax.fill_between(x_disturb_1, y_disturb_1, 4.0, alpha=0.2, color='blue')
 
 y_disturb_2 = np.arange(start=-2*(disturb_std*0.5), stop=2*(disturb_std*0.5)+0.1, step=0.1)
 x_disturb_2 = norm.pdf(y_disturb_2, loc=0, scale=disturb_std*0.5)/f_max_2 * disturb_max - 0.5
@@ -155,9 +155,9 @@ best_reward = 0
 reward_list = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1])
 x0 = np.array([5.0,0.0])
 
-#for idx, comb in enumerate(all_comb):
-if (True):
-    comb = [0,1,0,0,0,0,0,0,0,0,0,0,0,0]
+for idx, comb in enumerate(all_comb):
+#if (True):
+    #comb = [1,1,1,1,1,1,1,1,1,1,0,0,1,1]
     x_r_list = []
     radius_list = []
     alpha_list_comb = []
@@ -189,10 +189,10 @@ if (True):
         y_list = y_list_comb
         t_list = t_list_comb
         best_reward = reward
-        #best_idx = idx
+        best_idx = idx
         
-#best_comb = all_comb[best_idx]
-best_comb = comb
+best_comb = all_comb[best_idx]
+#best_comb = comb
 print("best_reward: ", best_reward)
 print("Time Used: ", time.perf_counter()-t_start)
 x_r_list = []

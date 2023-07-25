@@ -126,6 +126,10 @@ feasible_candidates = []
 
 for x in x_range:
     for y in y_range:
+        if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+            continue
+        if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
+            continue
         x0 = np.array([x,y])
         feasible_candidates.append(x0)
 
@@ -144,6 +148,10 @@ with multiprocessing.Pool() as pool:
             x = x_range[int(x)]
             y = y_range[int(y)]
             if y > y_max or y < y_min or x > x_max or x < x_min:
+                continue
+            if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+                continue
+            if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
                 continue
             if (in_control_hash_table.get(forward_cell)==None):
                 backward_set = np.array([x0_key])

@@ -220,7 +220,7 @@ def mutate_process(comb, mutation_rate):
 def genetic_comb_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, radius_list, alpha_list, reward_list, U_max, alpha_clf, beta, obstacle_list, dt, \
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
 
-    num_comb = 4
+    num_comb = 8
     num_states = len(x_r_list)-1
     num_steps = 2*num_states
     comb_all = []

@@ -43,7 +43,7 @@ def discretize_u_forward_cal(x0):
     forward_set = np.array([])
 
     dist_list = np.array([])
-    if disturbance and robot.X[1]>3.5 and robot.X[0] > -2*disturb_std and robot.X[0] < 2*disturb_std:
+    if disturbance and robot.X[1]>4.0 and robot.X[0] > -2*disturb_std and robot.X[0] < 2*disturb_std:
         y_disturb = norm.pdf(robot.X[0], loc=0, scale=disturb_std)[0]/f_max_1 * disturb_max
         x_disturb = 0.0
     elif disturbance and robot.X[0]>-0.5 and robot.X[0] < 1.8\
@@ -69,6 +69,10 @@ def discretize_u_forward_cal(x0):
         x = new_pos[0]
         y = new_pos[1]
         if y > y_max or y < y_min or x > x_max or x < x_min:
+            continue
+        if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+            continue
+        if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
             continue
         pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
         added = has_been_added.get(pos_key)
