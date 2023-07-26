@@ -38,6 +38,7 @@ ax.set_ylabel("Y")
 # Define Series of Safe Sets
 num_points = 15
 centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
+
 centroids[0][0] = 4.5
 centroids[0][1] = 1.0
 
@@ -71,17 +72,17 @@ centroids[9][1] = 1.3
 centroids[10][0] = 0.0
 centroids[10][1] = 0.0
 
-centroids[11][0] = -1.0
+centroids[11][0] = -1.5
 centroids[11][1] = 0.0
 
-centroids[12][0] = -3.0
-centroids[12][1] = 0.0
+centroids[12][0] = -3.5
+centroids[12][1] = 1.0
 
-centroids[13][0] = -3.8
-centroids[13][1] = 1.0
+centroids[13][0] = -4.0
+centroids[13][1] = 2.0
 
-centroids[14][0] = -4.0
-centroids[14][1] = 2.0
+centroids[14][0] = -4.5
+centroids[14][1] = 3.0
 
 rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
 # Add the patch to the Axes
@@ -129,8 +130,8 @@ f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1/0.5
 
 x_disturb_1 = np.arange(start=-2*disturb_std, stop=2*disturb_std+0.1, step=0.1)
-y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 3.5
-ax.fill_between(x_disturb_1, y_disturb_1, 3.5, alpha=0.2, color='blue')
+y_disturb_1 = norm.pdf(x_disturb_1, loc=0, scale=disturb_std)/f_max_1 * disturb_max + 4.0
+ax.fill_between(x_disturb_1, y_disturb_1, 4.0, alpha=0.2, color='blue')
 
 y_disturb_2 = np.arange(start=-2*(disturb_std*0.5), stop=2*(disturb_std*0.5)+0.1, step=0.1)
 x_disturb_2 = norm.pdf(y_disturb_2, loc=0, scale=disturb_std*0.5)/f_max_2 * disturb_max - 0.6

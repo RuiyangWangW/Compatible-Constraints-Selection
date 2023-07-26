@@ -46,41 +46,33 @@ class predictive_frame_slack:
         u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)))
         alpha_soft = cp.Variable((self.num_constraints_soft))
         alpha_0 = cp.Parameter((self.num_constraints_soft))
-        h = cp.Parameter((self.num_constraints_soft))
+        v = cp.Parameter((self.num_constraints_soft))
         A1_hard = cp.Parameter((self.num_constraints_hard,2),value=np.zeros((self.num_constraints_hard,2)))
         b1_hard = cp.Parameter((self.num_constraints_hard,1),value=np.zeros((self.num_constraints_hard,1)))
         A1_soft = cp.Parameter((self.num_constraints_soft,2),value=np.zeros((self.num_constraints_soft,2)))
         b1_soft = cp.Parameter((self.num_constraints_soft,1),value=np.zeros((self.num_constraints_soft,1)))
-        A1_clf = cp.Parameter((self.num_constraints_clf,2),value=np.zeros((self.num_constraints_clf,2)))
-        b1_clf = cp.Parameter((self.num_constraints_clf,1),value=np.zeros((self.num_constraints_clf,1)))
-        slack_constraints_clf = cp.Variable((self.num_constraints_clf,1))
-        const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + cp.multiply(alpha_soft, h), \
-                  A1_clf @ u1 <= b1_clf + slack_constraints_clf, cp.norm2(u1) <= self.U_max,
-                  alpha_soft >= np.zeros((self.num_constraints_soft)),
-                  slack_constraints_clf >= np.zeros((self.num_constraints_clf,1))]
-        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 100*cp.sum_squares(slack_constraints_clf) 
-                                 + 10*cp.sum_squares(alpha_soft-alpha_0))
+        const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + cp.multiply(alpha_soft, v), \
+                  cp.norm2(u1) <= self.U_max]
+        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 10*cp.sum_squares(alpha_soft-alpha_0))
         constrained_controller = cp.Problem( objective1, const1 ) 
 
+        robot = self.robot
 
         # Define relaxed Optimization Problem
         u_relaxed = cp.Variable((2,1))
         alpha_soft = cp.Variable((self.num_constraints_soft))
         slack_constraints_hard = cp.Variable((self.num_constraints_hard,1))
         slack_constraints_soft = cp.Variable((self.num_constraints_soft,1))
-        slack_constraints_clf = cp.Variable((self.num_constraints_clf,1))
         const_relaxed = [A1_hard @ u_relaxed <= b1_hard + slack_constraints_hard, A1_soft @ u_relaxed <= b1_soft + cp.multiply(alpha_soft, h) + slack_constraints_soft, \
-                  A1_clf @ u_relaxed <= b1_clf + slack_constraints_clf, cp.norm2(u_relaxed) <= self.U_max,
+                  cp.norm2(u_relaxed) <= self.U_max,
                   alpha_soft >= np.zeros((self.num_constraints_soft)),
                   slack_constraints_hard >= np.zeros((self.num_constraints_hard,1)),
-                  slack_constraints_soft >= np.zeros((self.num_constraints_soft,1)),
-                  slack_constraints_clf >= np.zeros((self.num_constraints_clf,1)),]
-        objective_relaxed = cp.Minimize(cp.sum_squares(u_relaxed - u1_ref ) + 100*cp.sum_squares(slack_constraints_clf) 
+                  slack_constraints_soft >= np.zeros((self.num_constraints_soft,1))]
+        objective_relaxed = cp.Minimize(cp.sum_squares(u_relaxed - u1_ref ) 
                                  + 1000*cp.sum_squares(slack_constraints_soft) + 10*cp.sum_squares(alpha_soft-alpha_0)
                                  + 1000*cp.sum_squares(slack_constraints_hard))
         relaxed_controller = cp.Problem(objective_relaxed, const_relaxed) 
-        
-        robot = self.robot
+
         # Define Disturbance 
         u_d = cp.Parameter((2,1), value = np.zeros((2,1)))
 
@@ -101,34 +93,32 @@ class predictive_frame_slack:
             x_r = self.x_r_list[self.x_r_id].reshape(2,1)
             alpha_0.value = np.array([self.alpha_list[self.x_r_id]])
             radius = self.radius_list[self.x_r_id]
-            v, dv_dx = robot.lyapunov(x_r) 
-            robot.A1_soft[0,:] = dv_dx@robot.g()
-            robot.b1_soft[0] = -dv_dx@(robot.f()) - self.alpha_clf*v - dv_dx@robot.g()@u_d.value
-        
-            h1, dh1_dx = robot.static_safe_set(x_r,radius)    
-            robot.A1_hard[0,:] = -dh1_dx@robot.g()
-            robot.b1_hard[0] = dh1_dx@robot.f() + dh1_dx@robot.g()@u_d.value
-            h.value = np.array([h1])
 
-            h2 = (self.y_max - robot.X[1])[0]
-            robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
-            robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + self.beta*h2 - np.array([0,1]).reshape(1,2)@robot.f()
+            if robot.type == 'SingleIntegrator2D':
+                V, dv_dx = robot.lyapunov(x_r) 
+                h1, _ = robot.static_safe_set(x_r, radius)
+                h1 = -h1
+                robot.A1_soft[0,:] = -dv_dx@robot.g()
+                robot.b1_soft[0] = dv_dx@robot.f() + dv_dx@robot.g()@u_d.value
+                v.value = np.array([V])
 
-            for j in range(0,len(self.obstacle_list)):
-                obs_x_r = self.obstacle_list[j,:].reshape(2,1)
-                h_obs, dh_obs_dx = robot.static_safe_set(obs_x_r,0.2) 
-                h_obs = -h_obs
-                dh_obs_dx = -dh_obs_dx
-                robot.A1_hard[j+2,:] = -dh_obs_dx@robot.g()
-                robot.b1_hard[j+2] = dh_obs_dx@robot.f() + self.beta*h_obs + dh_obs_dx@robot.g()@u_d.value
+                h2 = (self.y_max - robot.X[1])[0]
+                robot.A1_hard[0,:] = np.array([0,1]).reshape(1,2)@robot.g()
+                robot.b1_hard[0] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + self.beta*h2 - np.array([0,1]).reshape(1,2)@robot.f()
 
-            A1_clf.value = robot.A1_soft
-            b1_clf.value = robot.b1_soft
-            A1_soft.value = robot.A1_hard[0,:].reshape(-1,2)
-            b1_soft.value = robot.b1_hard[0,:].reshape(-1,1)
-            A1_hard.value = robot.A1_hard[1:,:].reshape(-1,2)
-            b1_hard.value = robot.b1_hard[1:,:].reshape(-1,1)
-            u1_ref.value = robot.nominal_input(x_r)
+                for j in range(0,len(self.obstacle_list)):
+                    obs_x_r = self.obstacle_list[j,:].reshape(2,1)
+                    h_obs, dh_obs_dx = robot.static_safe_set(obs_x_r,0.2) 
+                    robot.A1_hard[j+1,:] = -dh_obs_dx@robot.g()
+                    robot.b1_hard[j+1] = dh_obs_dx@robot.f() + self.beta*h_obs + dh_obs_dx@robot.g()@u_d.value
+
+                A1_soft.value = robot.A1_soft
+                b1_soft.value = robot.b1_soft
+                A1_hard.value = robot.A1_hard.reshape(-1,2)
+                b1_hard.value = robot.b1_hard.reshape(-1,1)
+                u1_ref.value = robot.nominal_input(x_r)
+            else:
+                print("here")
             
             try:
                 constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
@@ -151,6 +141,7 @@ class predictive_frame_slack:
 
             if delta_t>self.delta_t_limit:
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
+                slack_total_sum = delta_t-self.delta_t_limit
                 flag = "fail"
 
 

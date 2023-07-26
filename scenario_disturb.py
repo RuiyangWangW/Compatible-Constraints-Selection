@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import norm
+from Trajectory_Model import *
 
 
 
@@ -47,3 +48,108 @@ def disturb_value(robot, disturbance, disturb_std, disturb_max, f_max_1, f_max_2
     u_d_value = np.array([x_disturb, y_disturb]).reshape(2,1)
     
     return u_d_value
+
+def scenario_waypoints(scenario_num, robot_type):
+
+    
+
+    if scenario_num == 3 and robot_type == 'SingleIntegrator2D':
+        num_points = 15
+        centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
+
+        centroids[0][0] = 4.5
+        centroids[0][1] = 1.0
+
+        centroids[1][0] = 3.8
+        centroids[1][1] = 2.3
+
+        centroids[2][0] = 3.2
+        centroids[2][1] = 3.8
+
+        centroids[3][0] = 2.0
+        centroids[3][1] = 5.0
+
+        centroids[4][0] = 0.8
+        centroids[4][1] = 5.0
+
+        centroids[5][0] = -0.8
+        centroids[5][1] = 5.0
+
+        centroids[6][0] = -2.0
+        centroids[6][1] = 5.0
+
+        centroids[7][0] = -1.4
+        centroids[7][1] = 4.0
+
+        centroids[8][0] = -0.6
+        centroids[8][1] = 2.6
+
+        centroids[9][0] = 0.2
+        centroids[9][1] = 1.3
+
+        centroids[10][0] = 0.0
+        centroids[10][1] = 0.0
+
+        centroids[11][0] = -1.5
+        centroids[11][1] = 0.0
+
+        centroids[12][0] = -3.5
+        centroids[12][1] = 1.0
+
+        centroids[13][0] = -4.0
+        centroids[13][1] = 2.0
+
+        centroids[14][0] = -4.5
+        centroids[14][1] = 3.0
+
+    elif scenario_num == 3 and robot_type == 'DoubleIntegrator2D':
+        num_points = 15
+        centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
+        centroids[0][0] = 4.5
+        centroids[0][1] = 1.0
+
+        centroids[1][0] = 3.8
+        centroids[1][1] = 2.3
+
+        centroids[2][0] = 3.2
+        centroids[2][1] = 3.8
+
+        centroids[3][0] = 2.0
+        centroids[3][1] = 5.0
+
+        centroids[4][0] = 0.8
+        centroids[4][1] = 5.0
+
+        centroids[5][0] = -0.8
+        centroids[5][1] = 5.0
+
+        centroids[6][0] = -2.0
+        centroids[6][1] = 5.0
+
+        centroids[7][0] = -1.4
+        centroids[7][1] = 4.0
+
+        centroids[8][0] = -0.6
+        centroids[8][1] = 2.6
+
+        centroids[9][0] = 0.2
+        centroids[9][1] = 1.3
+
+        centroids[10][0] = 0.25
+        centroids[10][1] = 0.25
+
+        centroids[11][0] = -1.5
+        centroids[11][1] = 0.0
+
+        centroids[12][0] = -3.5
+        centroids[12][1] = 1.0
+
+        centroids[13][0] = -4.0
+        centroids[13][1] = 2.0
+
+        centroids[14][0] = -4.5
+        centroids[14][1] = 3.0
+    else:
+        return 0
+
+    return centroids
