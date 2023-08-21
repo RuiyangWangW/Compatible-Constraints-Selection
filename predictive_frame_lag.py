@@ -12,7 +12,7 @@ from scenario_disturb import *
 
 class predictive_frame_lag:
 
-    def __init__(self, scenario_num, robot_type, x0, dt, tf, U_max, alpha_values, beta_values, num_constraints_hard, x_r_list, radius_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
+    def __init__(self, scenario_num, robot_type, x0, dt, tf, U_max, V_max, alpha_values, beta_values, num_constraints_hard, x_r_list, radius_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
         self.scenario_num = scenario_num
         self.x0 = x0
         self.dt = dt
@@ -24,19 +24,20 @@ class predictive_frame_lag:
         self.num_constraints_clf = 1
         self.obstacle_list = obstacle_list
         self.reward_list = reward_list
+
         if robot_type == 'SingleIntegrator2D':
             self.robot = SingleIntegrator2D(self.x0, self.dt, ax=None, id = 0, color='r', palpha=1.0, \
                                             num_constraints_hard = self.num_constraints_hard,
                                             num_constraints_soft = self.num_constraints_soft, plot=False)
         else:
-            self.robot = DoubleIntegrator2D(self.x0, self.dt, ax=None,
+            self.robot = DoubleIntegrator2D(self.x0, self.dt, ax=None, V_max = V_max,
                                             num_constraints_hard = self.num_constraints_hard,
                                             num_constraints_soft = self.num_constraints_soft, plot=False)
         self.disturbance = disturbance
         self.disturb_std = disturb_std
         self.disturb_max = disturb_max
-        self.f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
-        self.f_max_2 = self.f_max_1/0.5
+        self.f_max_1 = 1/(self.disturb_std*math.sqrt(2*math.pi))
+        self.f_max_2 = self.f_max_1*2.0
         self.x_r_list = x_r_list
         self.radius_list = radius_list
         self.x_r_id = 0
@@ -78,10 +79,10 @@ class predictive_frame_lag:
             slack_soft = cp.Variable((self.num_constraints_soft,1))
             const1 = [A1_hard @ u1 <= b1_hard, 
                       A1_soft @ u1 <= b1_soft + slack_soft,
-                      slack_soft >= np.zeros((self.num_constraints_soft)), 
-                      cp.norm2(u1) <= self.U_max
+                      slack_soft >= np.zeros((self.num_constraints_soft,1)),
+                      cp.norm2(u1[0]) <= self.U_max, cp.norm2(u1[1]) <= self.U_max
                       ]
-            objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ))
+            objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 10*cp.sum_squares(slack_soft))
             constrained_controller = cp.Problem( objective1, const1 ) 
         # Define Disturbance 
         u_d = cp.Parameter((2,1), value = np.zeros((2,1)))
@@ -124,7 +125,7 @@ class predictive_frame_lag:
             else:
                 phi_0, dphi_0_dx, dx12_dt = robot.lyapunov(x_r)
                 robot.A1_soft[0,:] = -dphi_0_dx.T@robot.J()
-                robot.b1_soft[0] = dphi_0_dx.T@robot.J()@u_d.value - 2*robot.X[2:4].T@dx12_dt - \
+                robot.b1_soft[0] = dphi_0_dx.T@u_d.value - 2*dx12_dt.T@dx12_dt - \
                                    (self.alpha_1+self.alpha_2)*dphi_0_dx.T@dx12_dt - (self.alpha_1*self.alpha_2)*phi_0
                 h1, _, _ = robot.barrier(x_r, radius)
                 h1 = -h1
@@ -133,7 +134,7 @@ class predictive_frame_lag:
                     obs_x_r = self.obstacle_list[j,:].reshape(2,1)
                     h, dh_dx, dx12_dt = robot.barrier(obs_x_r,0.2)
                     robot.A1_hard[j,:] = -dh_dx.T@robot.J()
-                    robot.b1_hard[j] = dh_dx.T@robot.J()@u_d.value + 2*robot.X[2:4].T@dx12_dt + \
+                    robot.b1_hard[j] = dh_dx.T@u_d.value + 2*dx12_dt.T@dx12_dt + \
                     (self.beta_1+self.beta_2)*dh_dx.T@dx12_dt + (self.beta_1*self.beta_2)*h
 
             A1_soft.value = robot.A1_soft
@@ -145,18 +146,21 @@ class predictive_frame_lag:
             try:
                 constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 lamda_sum += const1[1].dual_value[0][0]
-                if robot.type == 'SingleIntegrator2D':
-                    u_next = u1.value + u_d.value
-                    robot.step(u_next)
-                else:
-                    robot.step(u1.value, u_d.value, self.disturbance)
             except Exception as error:
+                #print(error)
                 flag = "fail"
                 break
+             
 
             if constrained_controller.status != "optimal" and constrained_controller.status != "optimal_inaccurate":
                 flag = "fail"
                 break
+
+            if robot.type == 'SingleIntegrator2D':
+                u_next = u1.value + u_d.value
+                robot.step(u_next)
+            else:
+                robot.step(u1.value, u_d.value, self.disturbance)
 
             delta_t += self.dt
             x_list.append(robot.X[0])
@@ -168,16 +172,16 @@ class predictive_frame_lag:
                 lamda_sum_i = copy.deepcopy(lamda_sum)
                 lamda_sum = 0
                 lamda_sum_list.append(lamda_sum_i)
-                if self.x_r_id == len(self.x_r_list)-1:
-                    break
                 reward += self.reward_list[self.x_r_id]
                 self.x_r_id += 1
+                if self.x_r_id == len(self.x_r_list):
+                    break
                 self.delta_t_limit -= delta_t
                 delta_t = 0
             else:
                 continue
         
-        if self.x_r_id < len(self.x_r_list)-1:
+        if self.x_r_id < len(self.x_r_list):
             flag = "fail"
 
         if flag == "fail":
@@ -200,7 +204,7 @@ def rand_list_init(num_states):
     return l
 
 def fitness_score_lag(comb, scenario_num, robot_type, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_values, beta_values, \
-                    reward_list, U_max, obstacle_list, dt, disturbance, disturb_std, disturb_max,\
+                    reward_list, U_max, V_max, obstacle_list, dt, disturbance, disturb_std, disturb_max,\
                     num_constraints_hard, fitness_score_table):
     
     if fitness_score_table.get(tuple(comb)) != None:
@@ -208,7 +212,9 @@ def fitness_score_lag(comb, scenario_num, robot_type, x0, time_horizon, reward_m
         return traj, score, reward, fitness_score_table
 
     num_states = len(x_r_list)    
-    reward_weight = 0.01
+    #reward_weight = 0.01
+    #reward_weight = 10.0
+    reward_weight = 1.0
     x_r_list_comb = []
     radii_comb = []
     reward_list_comb = []
@@ -219,7 +225,7 @@ def fitness_score_lag(comb, scenario_num, robot_type, x0, time_horizon, reward_m
             reward_list_comb.append(reward_list[i])
 
     if (len(x_r_list_comb)>0):
-        pred_frame = predictive_frame_lag(scenario_num,robot_type,x0,dt, time_horizon, U_max, alpha_values, beta_values,
+        pred_frame = predictive_frame_lag(scenario_num,robot_type,x0,dt, time_horizon, U_max, V_max, alpha_values, beta_values,
                                           num_constraints_hard=num_constraints_hard, x_r_list=x_r_list_comb, radius_list=radii_comb, \
                                     reward_list = reward_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
@@ -248,10 +254,10 @@ def mutate_process(comb, mutation_rate):
             mutated_comb.append(comb[i])
     return mutated_comb
 
-def genetic_comb_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, reward_max, radius_list, alpha_list, reward_list, U_max, alpha_clf, beta, obstacle_list, dt, \
+def genetic_comb_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, reward_max, radius_list, alpha_values, beta_values, reward_list, U_max, V_max, obstacle_list, dt, \
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
 
-    num_comb = 4
+    num_comb = 6
     num_states = len(x_r_list)-1
     num_steps = 2*num_states
     comb_all = []
@@ -268,8 +274,8 @@ def genetic_comb_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, rewar
     for i in range(num_comb):
         comb_appended = copy.deepcopy(comb_all[i])
         comb_appended.append(1)
-        traj, score, reward, fitness_score_table = fitness_score_lag(comb_appended, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
-                                    alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+        traj, score, reward, fitness_score_table = fitness_score_lag(comb_appended, scenario_num, robot_type, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_values, beta_values, 
+                                                                      reward_list, U_max, V_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
         traj_all.append(traj)
         fit_all.append(score)
         reward_all.append(reward)
@@ -313,8 +319,8 @@ def genetic_comb_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, rewar
             for i in range(num_comb):
                 comb_appended = copy.deepcopy(comb_all[i])
                 comb_appended.append(1)
-                traj, score, reward, fitness_score_table = fitness_score_lag(comb_appended, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
-                                            alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+                traj, score, reward, fitness_score_table = fitness_score_lag(comb_appended, scenario_num, robot_type, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_values, beta_values, 
+                                                                      reward_list, U_max, V_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
                 traj_all.append(traj)
                 fit_all.append(score)
                 reward_all.append(reward)
@@ -330,13 +336,13 @@ def genetic_comb_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, rewar
     comb_min.append(1)
     return iteration, comb_min, traj_temp, reward_best
 
-def deterministic_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, reward_max, radius_list, alpha_values, beta_values, reward_list, U_max, obstacle_list, dt, \
+def deterministic_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, reward_max, radius_list, alpha_values, beta_values, reward_list, U_max, V_max, obstacle_list, dt, \
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
     
     init_comb = np.ones(shape=(len(x_r_list)))
     fitness_score_table = {}
     traj, min_r, best_reward, fitness_score_table = fitness_score_lag(init_comb, scenario_num, robot_type, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_values, beta_values, 
-                                                                      reward_list, U_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+                                                                      reward_list, U_max, V_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     best_comb = init_comb
     best_traj = traj
     dropped_constraints = {}
@@ -347,7 +353,7 @@ def deterministic_lag(scenario_num, robot_type, x0, x_r_list, time_horizon, rewa
                 temp_comb = copy.deepcopy(best_comb)
                 temp_comb[i] = 0
                 traj, r, reward, fitness_score_table = fitness_score_lag(temp_comb, scenario_num, robot_type, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_values, beta_values, 
-                                                                      reward_list, U_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+                                                                      reward_list, U_max, V_max, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
                 if best_traj == {}:
                     if r < min_r:
                         min_r = r
