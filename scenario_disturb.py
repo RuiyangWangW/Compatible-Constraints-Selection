@@ -31,16 +31,28 @@ def disturb_value(robot, disturbance, disturb_std, disturb_max, f_max_1, f_max_2
             y_disturb = 0.0
 
     elif scenario_num == 3:
-        if disturbance and robot.X[1]>4.0 and robot.X[0] > -2*disturb_std and robot.X[0] < 2*disturb_std:
-            y_disturb = norm.pdf(robot.X[0], loc=0, scale=disturb_std)[0]/f_max_1 * disturb_max
-            x_disturb = 0.0
-        elif disturbance and robot.X[0]>-0.5 and robot.X[0] < 1.8\
-            and robot.X[1] > -2*(disturb_std*0.5) and robot.X[1] < 2*(disturb_std*0.5):
-            x_disturb = norm.pdf(robot.X[1], loc=0, scale=disturb_std*0.5)[0]/f_max_2 * disturb_max
-            y_disturb = 0.0
+        if robot.type == 'SingleIntegrator2D':
+            if disturbance and robot.X[1]>4.0 and robot.X[0] > -2*disturb_std and robot.X[0] < 2*disturb_std:
+                y_disturb = norm.pdf(robot.X[0], loc=0, scale=disturb_std)[0]/f_max_1 * disturb_max
+                x_disturb = 0.0
+            elif disturbance and robot.X[0]>-0.5 and robot.X[0] < 1.8\
+                and robot.X[1] > -2*(disturb_std*0.5) and robot.X[1] < 2*(disturb_std*0.5):
+                x_disturb = norm.pdf(robot.X[1], loc=0, scale=disturb_std*0.5)[0]/f_max_2 * disturb_max
+                y_disturb = 0.0
+            else:
+                x_disturb = 0.0
+                y_disturb = 0.0
         else:
-            x_disturb = 0.0
-            y_disturb = 0.0
+            if disturbance and robot.X[1]>4.0 and robot.X[0] > -2*disturb_std and robot.X[0] < 2*disturb_std:
+                y_disturb = norm.pdf(robot.X[0], loc=0, scale=disturb_std)[0]/f_max_1 * disturb_max
+                x_disturb = 0.0
+            elif disturbance and robot.X[0]>-1.5 and robot.X[0] < 1.8\
+                and robot.X[1] > -2*(disturb_std*0.5) and robot.X[1] < 2*(disturb_std*0.5):
+                x_disturb = norm.pdf(robot.X[1], loc=0, scale=disturb_std*0.5)[0]/f_max_2 * disturb_max
+                y_disturb = 0.0
+            else:
+                x_disturb = 0.0
+                y_disturb = 0.0
     else:
         y_disturb = 0.0
         x_disturb = 0.0
@@ -115,40 +127,40 @@ def scenario_waypoints(scenario_num, robot_type):
         centroids[2][1] = 3.8
 
         centroids[3][0] = 2.0
-        centroids[3][1] = 5.0
+        centroids[3][1] = 4.8
 
-        centroids[4][0] = 0.8
-        centroids[4][1] = 5.0
+        centroids[4][0] = 0.7
+        centroids[4][1] = 5.2
 
-        centroids[5][0] = -0.8
-        centroids[5][1] = 5.0
+        centroids[5][0] = -0.7
+        centroids[5][1] = 5.2
 
         centroids[6][0] = -2.0
-        centroids[6][1] = 5.0
+        centroids[6][1] = 4.8
 
-        centroids[7][0] = -1.4
-        centroids[7][1] = 4.0
+        centroids[7][0] = -1.2
+        centroids[7][1] = 3.8
 
         centroids[8][0] = -0.6
         centroids[8][1] = 2.6
 
         centroids[9][0] = 0.2
-        centroids[9][1] = 1.3
+        centroids[9][1] = 1.5
 
-        centroids[10][0] = 0.25
-        centroids[10][1] = 0.25
+        centroids[10][0] = -0.75
+        centroids[10][1] = 0.0
 
-        centroids[11][0] = -1.5
+        centroids[11][0] = -2.5
         centroids[11][1] = 0.0
 
         centroids[12][0] = -3.5
-        centroids[12][1] = 1.0
+        centroids[12][1] = 1.5
 
         centroids[13][0] = -4.0
-        centroids[13][1] = 2.0
+        centroids[13][1] = 2.5
 
         centroids[14][0] = -4.5
-        centroids[14][1] = 3.0
+        centroids[14][1] = 3.5
     else:
         return 0
 

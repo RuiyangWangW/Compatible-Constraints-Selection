@@ -5,14 +5,15 @@ import cvxpy as cp
 from utils.utils import *
 
 class DoubleIntegrator2D: 
-    def __init__(self,X0,dt,ax,num_constraints_soft,num_constraints_hard,color='r',palpha=1.0,plot=False): 
+    def __init__(self,X0,dt,ax,V_max,num_constraints_soft,num_constraints_hard,color='r',palpha=1.0,plot=False): 
 
         ''' X0: iniytial state dt: simulation time step ax: plot axis handle ''' 
 
         self.X = X0.reshape(-1,1) 
         self.dt = dt 
         self.type = 'DoubleIntegrator2D'
-        self.ax = ax 
+        self.ax = ax
+        self.V_max = V_max 
         self.plot = plot
         if self.plot:
             self.body = ax.scatter([],[],c=color,alpha=palpha,s=10,zorder=10)
@@ -38,11 +39,17 @@ class DoubleIntegrator2D:
     # Move the robot  
     def step(self, U, U_d, disturbance): 
         if disturbance:
-            self.X = self.X + (self.f() + np.vstack([np.zeros((2,1)), U])) * self.dt
-        else:
             x_ddot = self.J()@U + U_d
             U_eff = np.linalg.pinv(self.J())@x_ddot
             self.X = self.X + (self.f() + np.vstack([np.zeros((2,1)), U_eff])) * self.dt
+        else:
+            self.X = self.X + (self.f() + np.vstack([np.zeros((2,1)), U])) * self.dt
+
+        if self.X[2] > self.V_max:
+            self.X[2] = self.V_max
+        elif self.X[2] < -self.V_max:
+            self.X[2] = -self.V_max
+
         if self.plot == True:
             self.render_plot()
         return self.X
@@ -54,7 +61,7 @@ class DoubleIntegrator2D:
         return phi_0, dphi_0_dx, dx12_dt
     
     def barrier(self, obs, d_min):
-        h = np.linalg.norm( self.X[0:2] - obs[0:2] )**2 - d_min**2 
+        h = np.linalg.norm(self.X[0:2] - obs[0:2])**2 - d_min**2 
         dh_dx = 2*(self.X[0:2]-obs[0:2])
         dx12_dt = np.array([self.X[2]*np.cos(self.X[3]), self.X[2]*np.sin(self.X[3])]).reshape(-1,1)
         return h, dh_dx, dx12_dt

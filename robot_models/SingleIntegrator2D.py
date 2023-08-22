@@ -29,19 +29,6 @@ class SingleIntegrator2D:
             self.body = ax.scatter([],[],c=color,alpha=palpha,s=10,zorder=10)
             self.render_plot()
         
-        """
-         # for Trust computation
-        self.eigen_alpha = eigen_alpha
-        self.obs_alpha =  alpha*np.ones((1,num_obstacles))#
-        self.robot_alpha = alpha*np.ones((1,num_robots))
-        self.robot_h = np.ones((1,num_robots))
-        self.obs_h = np.ones((1,num_obstacles))
-        self.robot_connectivity_objective = 0
-        self.robot_connectivity_alpha = alpha*np.ones((1,1)) 
-        """
-
-        #num_constraints1  = num_robots - 1 + num_obstacles + num_connectivity + num_eigen_connectivity
-        
         self.A1_hard = np.zeros((num_constraints_hard,2))
         self.b1_hard = np.zeros((num_constraints_hard,1))
         self.A1_soft = np.zeros((num_constraints_soft,2))
@@ -75,41 +62,16 @@ class SingleIntegrator2D:
             self.body.set_offsets([x[0],x[1]])
 
     def lyapunov(self, G):
-        V = np.linalg.norm( self.X - G[0:2] )**2
-        dV_dx = 2*( self.X - G[0:2] ).T
+        V = -np.linalg.norm( self.X - G[0:2])**2 
+        dV_dx = -2*( self.X - G[0:2] ).T
         return V, dV_dx
     
     def nominal_input(self,G):
-        V, dV_dx = self.lyapunov(G)
-        return - 5.0 * dV_dx.reshape(-1,1)
+        _, dV_dx = self.lyapunov(G)
+        return 5.0 * dV_dx.reshape(-1,1)
     
-    def static_safe_set(self, target, d_max):
-        h = d_max**2 - np.linalg.norm(self.X[0:2] - target[0:2])**2
-        dh_dx = -2*( self.X - target[0:2] ).T
+    def static_safe_set(self, obs, d_max):
+        h = np.linalg.norm(self.X[0:2] - obs[0:2])**2 - d_max**2
+        dh_dx = 2*( self.X - obs[0:2] ).T
 
         return h , dh_dx
-    
-    def agent_barrier(self,agent,d_min):
-        h = d_min**2 - np.linalg.norm(self.X - agent.X[0:2])**2
-        dh_dxi = -2*( self.X - agent.X[0:2] ).T
-        
-        if agent.type=='SingleIntegrator2D':
-            dh_dxj = 2*( self.X - agent.X[0:2] ).T
-        elif agent.type=='Unicycle':
-            dh_dxj = np.append( -2*( self.X - agent.X[0:2] ).T, [[0]], axis=1 )
-        else:
-            dh_dxj = 2*( self.X - agent.X[0:2] ).T
-        return h, dh_dxi, dh_dxj
-    
-    def connectivity_barrier( self, agent, d_max ):
-        h = np.linalg.norm( self.X[0:2] - agent.X[0:2] )**2 - d_max**2
-        
-        dh_dxi = 2*( self.X[0:2] - agent.X[0:2] ).T
-        if agent.type == 'SingleIntegrator2D':
-            dh_dxj = -2*( self.X[0:2] - agent.X[0:2] ).T
-        elif agent.type == 'Unicycle':
-            dh_dxj = np.append( -2*( self.X[0:2] - agent.X[0:2] ).T, np.array([[0]]), axis = 1 )
-        else:
-            dh_dxj = -2*( self.X[0:2] - agent.X[0:2] ).T
-        return h.reshape(-1,1), dh_dxi, dh_dxj        
-    
