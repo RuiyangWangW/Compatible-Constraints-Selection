@@ -37,8 +37,8 @@ class DoubleIntegrator2D:
                                   [np.sin(self.X[3]), self.X[2]*np.cos(self.X[3])]], dtype='float64').reshape(-1,2)
             
     # Move the robot  
-    def step(self, U, U_d, disturbance): 
-        if disturbance:
+    def step(self, U, U_d, if_disturb): 
+        if if_disturb:
             x_ddot = self.J()@U + U_d
             U_eff = np.linalg.pinv(self.J())@x_ddot
             self.X = self.X + (self.f() + np.vstack([np.zeros((2,1)), U_eff])) * self.dt
