@@ -21,7 +21,7 @@ plt.rcParams.update({'font.size': 15}) #27
 dt = 0.1
 t = 0
 #tf = 60 # for Single Integrator 
-t_horizon = 30
+t_horizon = 15
 final_wpt_time = 60
 # Define Parameters for CLF and CBF
 #U_max = 1.0
@@ -96,7 +96,7 @@ ax.axis('equal')
 
 #Define Disturbance
 if_disturb = True
-disturb_max = 1.2*U_max
+disturb_max = 0.9*U_max
 disturb_std = 1.5
 f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1*2.0
@@ -167,9 +167,9 @@ while curr_wpt_best < x_r_list.shape[0]:
     pred_frame.t_list = adaptive_t_list
     pred_frame.reward_list = adaptive_reward_list
     
-    curr_wpt_best, comb_best, traj_best, reward_best = deterministic_lag(x0=x0, curr_time=curr_t, pred_frame=pred_frame)
+    curr_wpt_best, comb_best, traj_best, reward_best = greedy_lag(x0=x0, curr_time=curr_t, pred_frame=pred_frame)
 
-    if traj_best == {}:
+    if traj_best["x"].shape[1] == 0:
         break
 
     if len(x_list) == 0:

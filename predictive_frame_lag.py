@@ -11,6 +11,9 @@ from scenario_disturb import *
 
 
 class predictive_frame_lag:
+    """
+    The class that initialize the robot structure and QP based Controller Structure
+    """
 
     def __init__(self, scenario_num, robot_type, x0, dt, tf, U_max, V_max, alpha_values, beta_values, num_constraints_hard, x_r_list, wpt_radius, t_list, reward_list, obstacle_list, if_disturb, disturb_std, disturb_max):
         self.scenario_num = scenario_num
@@ -87,7 +90,15 @@ class predictive_frame_lag:
         self.y_max = 6.0
 
     def forward(self, x0, curr_t, sub_list):
+        """
+        Given the robot position, current time, and a list of waypoint indices
 
+        The forward algorithm will generate a trajectory if the QP optimization problem is feasible
+        in all time steps starting from curr_t to curr_t + self.tf. 
+
+        If the QP optimization problem become infesaible at any time step, the algorithm will return a list
+        of Lagrange variables.
+        """
         #Initialization
         self.x0 = x0
         self.robot.X = x0
@@ -198,15 +209,11 @@ class predictive_frame_lag:
             reward = 0
             i -= 1
                 
-        if flag == "success":
-            r = 0
-        else:
-            r = sum(lamda_sum_list)
 
         x_list = x_list[:,0:i]
         t_list = t_list[0:i]
 
-        return x_list, t_list, flag, r, reward, curr_wpt
+        return x_list, t_list, flag, lamda_sum_list, reward, curr_wpt
 
 def rand_list_init(num_states):
     l = np.ones(shape=(num_states,))
@@ -227,7 +234,7 @@ def fitness_score_lag(comb, x0, curr_t, pred_frame):
            sub_list.append(i)
 
     if (len(sub_list)>0):
-        x_list, t_list, flag, score, reward, curr_wpt = pred_frame.forward(x0, curr_t, sub_list)
+        x_list, t_list, flag, lambda_sum_list, reward, curr_wpt = pred_frame.forward(x0, curr_t, sub_list)
         if flag == "success":
             traj = {"x": x_list, "t": t_list}
         else:
@@ -236,7 +243,7 @@ def fitness_score_lag(comb, x0, curr_t, pred_frame):
         reward = 0
         traj = {}
     
-    score += (pred_frame.reward_max-reward)*reward_weight
+    score = (pred_frame.reward_max-reward)*reward_weight + sum(lambda_sum_list)
 
     return traj, score, reward, curr_wpt
 
@@ -371,4 +378,37 @@ def deterministic_lag(x0, curr_time, pred_frame):
         dropped_constraints.update({candidate_idx: True})
         if len(dropped_constraints) == num_states-1:
             break
+    return curr_wpt_best, comb_best, traj_best, reward_best
+
+
+def greedy_lag(x0, curr_time, pred_frame):
+
+    num_states = len(pred_frame.x_r_list)
+    comb_best = np.ones(shape=(num_states))
+    sub_list = []
+    for i in range(num_states):
+        if comb_best[i] == 1:
+            sub_list.append(i)
+    
+    dropped_constraints = {}
+
+
+    x_list, t_list, flag, lambda_sum_list, reward, curr_wpt = pred_frame.forward(x0, curr_time, sub_list)
+
+    while flag == "fail":
+        if len(dropped_constraints) == num_states-1:
+            break
+        candidate_idx = np.argmax(np.array([lambda_sum_list]))
+        if (sub_list[candidate_idx]!=num_states-1 and dropped_constraints.get(i)==None):
+            comb_best[sub_list[candidate_idx]] = 0
+            dropped_constraints.update({sub_list[candidate_idx]: True})
+        sub_list = []
+        for i in range(num_states):
+            if comb_best[i] == 1:
+                sub_list.append(i)
+        x_list, t_list, flag, lambda_sum_list, reward, curr_wpt = pred_frame.forward(x0, curr_time, sub_list)
+
+    curr_wpt_best = curr_wpt
+    traj_best = {"x": x_list, "t": t_list}
+    reward_best = reward
     return curr_wpt_best, comb_best, traj_best, reward_best
