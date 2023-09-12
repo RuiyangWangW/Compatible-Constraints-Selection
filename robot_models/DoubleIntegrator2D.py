@@ -55,13 +55,13 @@ class DoubleIntegrator2D:
         return self.X
     
     def lyapunov(self, G):
-        phi_0 = -np.linalg.norm(self.X[0:2]-G[0:2])**2
+        phi_0 = np.array([-np.linalg.norm(self.X[0:2]-G[0:2])**2]).reshape(-1,1)
         dphi_0_dx = -2*(self.X[0:2]-G[0:2])
         dx12_dt = np.array([self.X[2]*np.cos(self.X[3]), self.X[2]*np.sin(self.X[3])]).reshape(-1,1)
         return phi_0, dphi_0_dx, dx12_dt
     
     def barrier(self, obs, d_min):
-        h = np.linalg.norm(self.X[0:2] - obs[0:2])**2 - d_min**2 
+        h =  np.array([np.linalg.norm(self.X[0:2] - obs[0:2])**2 - d_min**2]).reshape(-1,1) 
         dh_dx = 2*(self.X[0:2]-obs[0:2])
         dx12_dt = np.array([self.X[2]*np.cos(self.X[3]), self.X[2]*np.sin(self.X[3])]).reshape(-1,1)
         return h, dh_dx, dx12_dt

@@ -20,18 +20,18 @@ plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.1
 t = 0
-#tf = 60 # for Single Integrator 
-t_horizon = 15
-final_wpt_time = 60
+#tf = 120 # for Single Integrator 
+t_horizon = 120
+final_wpt_time = 120
 # Define Parameters for CLF and CBF
 #U_max = 1.0
-U_max = 1.0
+U_max = 2.0
 d_max = 0.4
 V_max = 1.0
 #alpha_values = [1.8,0.0] 
 #beta_values = [0.8,0.0]
-alpha_values = [0.4, 0.4]
-beta_values = [1.4, 1.4]
+alpha_values = [10, 10]
+beta_values = [10, 10]
 robot_type = 'DoubleIntegrator2D'
 scenario_num = 3
 num_constraints_soft1 = 1
@@ -96,7 +96,7 @@ ax.axis('equal')
 
 #Define Disturbance
 if_disturb = True
-disturb_max = 0.9*U_max
+disturb_max = 1.5*U_max
 disturb_std = 1.5
 f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1*2.0
@@ -130,7 +130,7 @@ best_reward = 0
 
 
 if robot_type == 'DoubleIntegrator2D': 
-    x0 = np.array([5.0,0.0,0.0,0.0]).reshape(4,1)
+    x0 = np.array([5.0,2.0,0.0,0.0]).reshape(4,1)
 else:
     x0 = np.array([5.0,0.0]).reshape(2,1)
 
@@ -180,8 +180,10 @@ while curr_wpt_best < x_r_list.shape[0]:
         x_list = np.hstack([x_list,traj_best["x"][0,:]])
         y_list = np.hstack([y_list,traj_best["x"][1,:]])
         t_list = np.hstack([t_list,traj_best["t"]])
-
-    x0 = traj_best["x"][:,-1].reshape(4,1)
+    if robot_type == 'DoubleIntegrator2D':  
+        x0 = traj_best["x"][:,-1].reshape(4,1)
+    else:
+        x0 = traj_best["x"][:,-1].reshape(2,1)
     curr_t = t_list[-1]
 
     total_reward += reward_best

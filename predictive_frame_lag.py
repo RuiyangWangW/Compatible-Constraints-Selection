@@ -29,6 +29,10 @@ class predictive_frame_lag:
         self.obstacle_list = obstacle_list
         self.reward_list = reward_list
         self.reward_max = sum(reward_list)
+        self.beta_1 = beta_values[0]
+        self.beta_2 = beta_values[1]
+        self.alpha_1 = alpha_values[0]
+        self.alpha_2 = alpha_values[1]
 
         if robot_type == 'SingleIntegrator2D':
             self.robot = SingleIntegrator2D(self.x0, self.dt, ax=None, id = 0, color='r', palpha=1.0, \
@@ -42,34 +46,52 @@ class predictive_frame_lag:
         if robot_type == 'SingleIntegrator2D':
             # Define constrained Optimization Problem
             self.u1 = cp.Variable((2,1))
-            self.u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)))
-            self.alpha_soft = cp.Variable((self.num_constraints_soft))
-            self.alpha_0 = cp.Parameter((self.num_constraints_soft))
-            self.alpha_0.value = np.array([self.alpha_1])
+            #self.u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)))
+            self.alpha_soft = cp.Variable((1,1))
+            self.alpha_1_param = cp.Parameter((1,1))
+            self.alpha_1_param.value = np.array([self.alpha_1]).reshape(-1,1)
             self.v = cp.Parameter((self.num_constraints_soft))
             self.A1_hard = cp.Parameter((self.num_constraints_hard,2),value=np.zeros((self.num_constraints_hard,2)))
             self.b1_hard = cp.Parameter((self.num_constraints_hard,1),value=np.zeros((self.num_constraints_hard,1)))
             self.A1_soft = cp.Parameter((self.num_constraints_soft,2),value=np.zeros((self.num_constraints_soft,2)))
             self.b1_soft = cp.Parameter((self.num_constraints_soft,1),value=np.zeros((self.num_constraints_soft,1)))
             self.const1 = [self.A1_hard @ self.u1 <= self.b1_hard, self.A1_soft @ self.u1 <= self.b1_soft + cp.multiply(self.alpha_soft, self.v), \
-                      cp.norm2(self.u1) <= self.U_max]
-            self.objective1 = cp.Minimize( cp.sum_squares(self.u1 - self.u1_ref) + 10*cp.sum_squares(self.alpha_soft-self.alpha_0))
+                      self.alpha_soft >= np.zeros((self.num_constraints_soft)), cp.norm2(self.u1) <= self.U_max]
+            self.objective1 = cp.Minimize(cp.sum_squares(self.u1) + cp.sum_squares(self.alpha_soft-self.alpha_1_param))
             self.constrained_controller = cp.Problem(self.objective1, self.const1) 
         else:
             # Define constrained Optimization Problem
             self.u1 = cp.Variable((2,1))
-            self.u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)))
+            #self.u1_ref = cp.Parameter((2,1), value = np.zeros((2,1)))
+            self.alpha_1_param = cp.Parameter((1,1))
+            self.alpha_1_param.value = np.array([self.alpha_1]).reshape(-1,1)
+            self.alpha_2_param = cp.Parameter((1,1))
+            self.alpha_2_param.value = np.array([self.alpha_2]).reshape(-1,1)
+            self.alpha_soft = cp.Variable((1,1))
+            self.beta_1_param = cp.Parameter((1,1))
+            self.beta_1_param.value = np.array([self.beta_1]).reshape(-1,1)
+            self.beta_2_param = cp.Parameter((1,1))
+            self.beta_2_param.value = np.array([self.beta_2]).reshape(-1,1)
+            self.beta_hard = cp.Variable((1,1))
+            self.H = cp.Parameter((self.num_constraints_hard,1))
+            self.H.value = np.zeros((self.num_constraints_hard,1))
+            self.dH_dx_T = cp.Parameter((num_constraints_hard,2))
+            self.dH_dx_T.value = np.zeros((self.num_constraints_hard,2))
+            self.phi = cp.Parameter((self.num_constraints_soft,1))
+            self.dphi_dx_T = cp.Parameter((1,2))
+            self.dx12_dt = cp.Parameter((2,1))
             self.A1_hard = cp.Parameter((self.num_constraints_hard,2),value=np.zeros((self.num_constraints_hard,2)))
             self.b1_hard = cp.Parameter((self.num_constraints_hard,1),value=np.zeros((self.num_constraints_hard,1)))
             self.A1_soft = cp.Parameter((self.num_constraints_soft,2),value=np.zeros((self.num_constraints_soft,2)))
             self.b1_soft = cp.Parameter((self.num_constraints_soft,1),value=np.zeros((self.num_constraints_soft,1)))
             self.slack_soft = cp.Variable((self.num_constraints_soft,1))
-            self.const1 = [self.A1_hard @ self.u1 <= self.b1_hard, 
-                      self.A1_soft @ self.u1 <= self.b1_soft + self.slack_soft,
-                      self.slack_soft >= np.zeros((self.num_constraints_soft,1)),
-                      cp.norm2(self.u1[0]) <= self.U_max, cp.norm2(self.u1[1]) <= self.U_max
-                      ]
-            self.objective1 = cp.Minimize( cp.sum_squares(self.u1 - self.u1_ref) + 10*cp.sum_squares(self.slack_soft))
+            self.const1 = [self.A1_hard @ self.u1 <= self.b1_hard + cp.multiply(self.beta_1_param+self.beta_hard, self.dH_dx_T@self.dx12_dt) +
+                        cp.multiply(cp.multiply(self.beta_1_param,self.beta_hard), self.H), 
+                        self.A1_soft @ self.u1 <= self.b1_soft + cp.multiply(self.alpha_1_param+self.alpha_soft, self.dphi_dx_T@self.dx12_dt) +
+                        cp.multiply(cp.multiply(self.alpha_1_param,self.alpha_soft), self.phi),
+                        self.alpha_soft >= np.zeros((1,1)), self.beta_hard >= np.zeros((1,1)),
+                        cp.norm2(self.u1[0]) <= self.U_max, cp.norm2(self.u1[1]) <= self.U_max]
+            self.objective1 = cp.Minimize(cp.sum_squares(self.u1)+cp.sum_squares(self.alpha_soft-self.alpha_2_param)+cp.sum_squares(self.beta_hard-self.beta_2_param))
             self.constrained_controller = cp.Problem(self.objective1, self.const1) 
         
         # Define if_disturb 
@@ -83,10 +105,6 @@ class predictive_frame_lag:
         self.wpt_radius = wpt_radius
         self.t_list = t_list
         self.x_r_id = 0
-        self.beta_1 = beta_values[0]
-        self.beta_2 = beta_values[1]
-        self.alpha_1 = alpha_values[0]
-        self.alpha_2 = alpha_values[1]
         self.y_max = 6.0
 
     def forward(self, x0, curr_t, sub_list):
@@ -115,7 +133,10 @@ class predictive_frame_lag:
         lamda_sum = 0
         lamda_sum_list = []
         flag = "success"
-        x_list = np.zeros((4,self.num_steps))
+        if self.robot.type == 'SingleIntegrator2D':
+            x_list = np.zeros((2,self.num_steps))
+        else:
+            x_list = np.zeros((4,self.num_steps))
         t_list = np.zeros((self.num_steps))
 
         for i in range(self.num_steps):
@@ -141,24 +162,27 @@ class predictive_frame_lag:
 
             else:
                 phi_0, dphi_0_dx, dx12_dt = self.robot.lyapunov(x_r)
+                self.phi.value = phi_0
+                self.dphi_dx_T.value = dphi_0_dx.T
+                self.dx12_dt.value = dx12_dt
                 self.robot.A1_soft[0,:] = -dphi_0_dx.T@self.robot.J()
-                self.robot.b1_soft[0] = dphi_0_dx.T@self.u_d.value - 2*dx12_dt.T@dx12_dt - \
-                                   (self.alpha_1+self.alpha_2)*dphi_0_dx.T@dx12_dt - (self.alpha_1*self.alpha_2)*phi_0
+                self.robot.b1_soft[0] = dphi_0_dx.T@self.u_d.value - 2*dx12_dt.T@dx12_dt
                 h1, _, _ = self.robot.barrier(x_r, radius)
                 h1 = -h1
-
+                
                 for j in range(0,len(self.obstacle_list)):
                     obs_x_r = self.obstacle_list[j,:].reshape(2,1)
                     h, dh_dx, dx12_dt = self.robot.barrier(obs_x_r,0.2)
+                    self.H.value[j] = h
+                    self.dH_dx_T.value[j,:] = dh_dx.T
                     self.robot.A1_hard[j,:] = -dh_dx.T@self.robot.J()
-                    self.robot.b1_hard[j] = dh_dx.T@self.u_d.value + 2*dx12_dt.T@dx12_dt + \
-                    (self.beta_1+self.beta_2)*dh_dx.T@dx12_dt + (self.beta_1*self.beta_2)*h
-
+                    self.robot.b1_hard[j] = dh_dx.T@self.u_d.value + 2*dx12_dt.T@dx12_dt
+                
+                
             self.A1_soft.value = self.robot.A1_soft
             self.b1_soft.value = self.robot.b1_soft
             self.A1_hard.value = self.robot.A1_hard.reshape(-1,2)
             self.b1_hard.value = self.robot.b1_hard.reshape(-1,1)
-            self.u1_ref.value = self.robot.nominal_input(x_r)
 
             try:
                 self.constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
@@ -176,18 +200,19 @@ class predictive_frame_lag:
             if self.robot.type == 'SingleIntegrator2D':
                 u_next = self.u1.value + self.u_d.value
                 self.robot.step(u_next)
+                x_list[:,i] = self.robot.X.reshape(2,)
             else:
                 self.robot.step(self.u1.value, self.u_d.value, self.if_disturb)
+                x_list[:,i] = self.robot.X.reshape(4,)
 
             curr_t += self.dt
-            x_list[:,i] = self.robot.X.reshape(4,)
+           
             t_list[i] = curr_t
 
             if (curr_t > self.t_list[self.x_r_id] and h1<0):
                 flag = "fail"
                 break
     
-
             if (h1 >= 0):
                 lamda_sum_i = copy.deepcopy(lamda_sum)
                 lamda_sum = 0
@@ -392,9 +417,8 @@ def greedy_lag(x0, curr_time, pred_frame):
     
     dropped_constraints = {}
 
-
     x_list, t_list, flag, lambda_sum_list, reward, curr_wpt = pred_frame.forward(x0, curr_time, sub_list)
-
+    
     while flag == "fail":
         if len(dropped_constraints) == num_states-1:
             break
@@ -407,7 +431,7 @@ def greedy_lag(x0, curr_time, pred_frame):
             if comb_best[i] == 1:
                 sub_list.append(i)
         x_list, t_list, flag, lambda_sum_list, reward, curr_wpt = pred_frame.forward(x0, curr_time, sub_list)
-
+    
     curr_wpt_best = curr_wpt
     traj_best = {"x": x_list, "t": t_list}
     reward_best = reward

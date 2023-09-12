@@ -118,10 +118,10 @@ def scenario_waypoints(scenario_num, robot_type):
         num_points = 15
         centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
         centroids[0][0] = 4.5
-        centroids[0][1] = 1.0
+        centroids[0][1] = 1.8
 
         centroids[1][0] = 3.8
-        centroids[1][1] = 2.3
+        centroids[1][1] = 2.8
 
         centroids[2][0] = 3.2
         centroids[2][1] = 3.8
@@ -138,7 +138,7 @@ def scenario_waypoints(scenario_num, robot_type):
         centroids[6][0] = -2.0
         centroids[6][1] = 4.8
 
-        centroids[7][0] = -1.2
+        centroids[7][0] = -1.6
         centroids[7][1] = 3.8
 
         centroids[8][0] = -0.6

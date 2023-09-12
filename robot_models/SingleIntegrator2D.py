@@ -62,7 +62,7 @@ class SingleIntegrator2D:
             self.body.set_offsets([x[0],x[1]])
 
     def lyapunov(self, G):
-        V = -np.linalg.norm( self.X - G[0:2])**2 
+        V = np.array([-np.linalg.norm( self.X - G[0:2])**2]).reshape(-1,1) 
         dV_dx = -2*( self.X - G[0:2] ).T
         return V, dV_dx
     
