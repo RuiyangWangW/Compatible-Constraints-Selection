@@ -21,18 +21,18 @@ plt.rcParams.update({'font.size': 15}) #27
 dt = 0.1
 t = 0
 #tf = 120 # for Single Integrator 
-t_horizon = 120
+t_horizon = 30
 final_wpt_time = 120
 # Define Parameters for CLF and CBF
-#U_max = 1.0
-U_max = 2.0
+U_max = 1.0
+#U_max = 2.0
 d_max = 0.4
 V_max = 1.0
-#alpha_values = [1.8,0.0] 
-#beta_values = [0.8,0.0]
-alpha_values = [10, 10]
-beta_values = [10, 10]
-robot_type = 'DoubleIntegrator2D'
+alpha_values = [2.0, 0.0] 
+beta_values = [1.0, 0]
+#alpha_values = [10, 10]
+#beta_values = [10, 10]
+robot_type = 'SingleIntegrator2D'
 scenario_num = 3
 num_constraints_soft1 = 1
 # Plot                  
@@ -47,21 +47,21 @@ ax.set_xlabel("X")
 ax.set_ylabel("Y")
 # Define Series of Safe Sets
 x_r_list = scenario_waypoints(scenario_num,robot_type)
-rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_1 = np.arange(start=-5+0.2,stop=5.0+0.2, step=0.4)
+rect = patches.Rectangle((-4.8, y_max-0.2), 9.6, 0.8, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.6+0.2,stop=4.6+0.2, step=0.4)
 obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.2
 obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_2 = np.arange(start=-3+0.2,stop=-0.6+0.2, step=0.4)
+rect = patches.Rectangle((-2.8, 0.8), 2.0, 0.8, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.6+0.2,stop=-1.0+0.2, step=0.4)
 obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.2
 obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((0.8, -0.8), 0.8, 2.0, linewidth=1, edgecolor='none', facecolor='k')
 ax.add_patch(rect)
-obstacle_list_y_3 = np.arange(start=-1+0.2, stop=1.4+0.2, step=0.4)
+obstacle_list_y_3 = np.arange(start=-0.6+0.2, stop=1.0+0.2, step=0.4)
 obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.2
 obstacle_list_3 = np.vstack((obstacle_list_x_3,obstacle_list_y_3)).T
 obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
@@ -70,7 +70,7 @@ obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
 num_constraints_hard1 = obstacle_list.shape[0]
 
 for i in range(0,obstacle_list.shape[0]):
-    circle = patches.Circle(obstacle_list[i,:], radius=0.2, color='black', zorder=0)
+    circle = patches.Circle(obstacle_list[i,:], radius=0.4, color='black', zorder=0)
     ax.add_patch(circle)
 ax.axis('equal')
 
@@ -132,7 +132,7 @@ best_reward = 0
 if robot_type == 'DoubleIntegrator2D': 
     x0 = np.array([5.0,2.0,0.0,0.0]).reshape(4,1)
 else:
-    x0 = np.array([5.0,0.0]).reshape(2,1)
+    x0 = np.array([5.0,2.0]).reshape(2,1)
 
 total_reward = 0
 total_iter = 0
@@ -194,11 +194,13 @@ while curr_wpt_best < x_r_list.shape[0]:
             r = radii[i]
             circle = patches.Circle(centroid, radius=r, color='green', zorder=2)
             ax.add_patch(circle)
+            
 
 print('Reward: ', total_reward )
 
+t_end = time.perf_counter()
 
-
+print('Calculation Time: ', t_end - t_start)
 
 plt.ioff()
 im = ax.scatter(x_list,y_list,cmap='copper',c=t_list, zorder=100)
