@@ -9,13 +9,14 @@ from scenario_disturb import *
 
 class predictive_frame_slack:
 
-    def __init__(self, scenario_num, x0, dt, tf, U_max, alpha_clf, beta, num_constraints_hard, x_r_list, radius_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
+    def __init__(self, scenario_num, x0, dt, tf, U_max, wpt_radius, alpha_clf, beta, num_constraints_hard, x_r_list, t_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
         self.scenario_num = scenario_num
         self.x0 = x0
         self.dt = dt
         self.tf = tf
         self.num_steps = int(self.tf/self.dt)
         self.U_max = U_max
+        self.wpt_radius = wpt_radius
         self.num_constraints_hard = num_constraints_hard
         self.num_constraints_soft = 1
         self.num_constraints_clf = 1
@@ -31,12 +32,11 @@ class predictive_frame_slack:
         self.f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
         self.f_max_2 = self.f_max_1/0.5
         self.x_r_list = x_r_list
-        self.radius_list = radius_list
+        self.t_list = t_list
         self.x_r_id = 0
         self.beta = beta
         self.alpha_clf = alpha_clf
         self.y_max = 6.0
-        self.delta_t_limit = float(self.tf)/len(x_r_list)
         self.eps = 1.0e-5
 
     def forward(self):
@@ -53,13 +53,10 @@ class predictive_frame_slack:
         b1_soft = cp.Parameter((self.num_constraints_soft,1),value=np.zeros((self.num_constraints_soft,1)))
         A1_clf = cp.Parameter((self.num_constraints_clf,2),value=np.zeros((self.num_constraints_clf,2)))
         b1_clf = cp.Parameter((self.num_constraints_clf,1),value=np.zeros((self.num_constraints_clf,1)))
-        slack_constraints_clf = cp.Variable((self.num_constraints_clf,1))
         const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + cp.multiply(alpha_soft, h), \
-                  A1_clf @ u1 <= b1_clf + slack_constraints_clf, cp.norm2(u1) <= self.U_max,
-                  alpha_soft >= np.zeros((self.num_constraints_soft)),
-                  slack_constraints_clf >= np.zeros((self.num_constraints_clf,1))]
-        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 100*cp.sum_squares(slack_constraints_clf) 
-                                 + 10*cp.sum_squares(alpha_soft-alpha_0))
+                  cp.norm2(u1) <= self.U_max,
+                  alpha_soft >= np.zeros((self.num_constraints_soft))]
+        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 10*cp.sum_squares(alpha_soft-alpha_0))
         constrained_controller = cp.Problem( objective1, const1 ) 
 
 
@@ -88,8 +85,8 @@ class predictive_frame_slack:
         r = 0
         reward = 0
         t = 0
-        # Define Delta t
-        delta_t = 0
+        # Define curr t
+        curr_t = 0
         slack_total_sum = 0
         x_list = []
         y_list = []
@@ -99,37 +96,29 @@ class predictive_frame_slack:
 
             u_d.value = disturb_value(robot, self.disturbance, self.disturb_std, self.disturb_max, self.f_max_1, self.f_max_2, scenario_num=self.scenario_num)
             x_r = self.x_r_list[self.x_r_id].reshape(2,1)
+            t_limit = self.t_list[self.x_r_id]
             alpha_0.value = np.array([self.alpha_list[self.x_r_id]])
-            radius = self.radius_list[self.x_r_id]
-            v, dv_dx = robot.lyapunov(x_r) 
-            robot.A1_soft[0,:] = dv_dx@robot.g()
-            robot.b1_soft[0] = -dv_dx@(robot.f()) - self.alpha_clf*v - dv_dx@robot.g()@u_d.value
+            radius = self.wpt_radius
         
             h1, dh1_dx = robot.static_safe_set(x_r,radius)    
             robot.A1_hard[0,:] = -dh1_dx@robot.g()
             robot.b1_hard[0] = dh1_dx@robot.f() + dh1_dx@robot.g()@u_d.value
             h.value = np.array([h1])
 
-            h2 = (self.y_max - robot.X[1])[0]
-            robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
-            robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + self.beta*h2 - np.array([0,1]).reshape(1,2)@robot.f()
-
             for j in range(0,len(self.obstacle_list)):
                 obs_x_r = self.obstacle_list[j,:].reshape(2,1)
                 h_obs, dh_obs_dx = robot.static_safe_set(obs_x_r,0.2) 
                 h_obs = -h_obs
                 dh_obs_dx = -dh_obs_dx
-                robot.A1_hard[j+2,:] = -dh_obs_dx@robot.g()
-                robot.b1_hard[j+2] = dh_obs_dx@robot.f() + self.beta*h_obs + dh_obs_dx@robot.g()@u_d.value
+                robot.A1_hard[j+1,:] = -dh_obs_dx@robot.g()
+                robot.b1_hard[j+1] = dh_obs_dx@robot.f() + self.beta*h_obs + dh_obs_dx@robot.g()@u_d.value
 
-            A1_clf.value = robot.A1_soft
-            b1_clf.value = robot.b1_soft
             A1_soft.value = robot.A1_hard[0,:].reshape(-1,2)
             b1_soft.value = robot.b1_hard[0,:].reshape(-1,1)
             A1_hard.value = robot.A1_hard[1:,:].reshape(-1,2)
             b1_hard.value = robot.b1_hard[1:,:].reshape(-1,1)
             u1_ref.value = robot.nominal_input(x_r)
-            
+
             try:
                 constrained_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 u_next = u1.value + u_d.value
@@ -142,14 +131,14 @@ class predictive_frame_slack:
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 flag = "fail"
 
-            delta_t += self.dt
+            curr_t += self.dt
             x_list.append(robot.X[0])
             y_list.append(robot.X[1])
             t += self.dt
             t_list.append(t)
 
 
-            if delta_t>self.delta_t_limit:
+            if curr_t > t_limit:
                 relaxed_controller.solve(solver=cp.GUROBI, reoptimize=True)
                 flag = "fail"
 
@@ -171,14 +160,13 @@ class predictive_frame_slack:
                     break
                 reward += self.reward_list[self.x_r_id]
                 self.x_r_id += 1
-                delta_t = 0
             else:
                 continue
 
         return r, reward, x_list, y_list, t_list
 
-def fitness_score_slack(comb, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, \
-                    reward_list, U_max,  alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max,\
+def fitness_score_slack(comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, \
+                    reward_list, U_max, wpt_radius,  alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max,\
                     num_constraints_hard, fitness_score_table, mode):
     
     if fitness_score_table.get(tuple(comb)) != None:
@@ -188,19 +176,19 @@ def fitness_score_slack(comb, scenario_num, x0, time_horizon, reward_max, x_r_li
     num_states = len(x_r_list)    
     reward_weight = 0.01
     x_r_list_comb = []
-    radii_comb = []
+    time_comb = []
     alpha_list_comb = []
     reward_list_comb = []
     for i in range(num_states):
         if comb[i] == 1:
             x_r_list_comb.append(x_r_list[i])
-            radii_comb.append(radius_list[i])
+            time_comb.append(t_list[i])
             alpha_list_comb.append(alpha_list[i])
             reward_list_comb.append(reward_list[i])
 
     if (len(x_r_list_comb)>0):
-        pred_frame = predictive_frame_slack(scenario_num,x0,dt,time_horizon,U_max,alpha_clf,beta,num_constraints_hard=num_constraints_hard, \
-                                    x_r_list=x_r_list_comb, radius_list=radii_comb, alpha_list=alpha_list_comb, \
+        pred_frame = predictive_frame_slack(scenario_num,x0,dt,time_horizon,U_max,wpt_radius,alpha_clf,beta,num_constraints_hard=num_constraints_hard, \
+                                    x_r_list=x_r_list_comb, t_list=time_comb, alpha_list=alpha_list_comb, \
                                     reward_list = reward_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
         score, reward, x_list, y_list, t_list = pred_frame.forward()
@@ -219,17 +207,17 @@ def fitness_score_slack(comb, scenario_num, x0, time_horizon, reward_max, x_r_li
     fitness_score_table.update({tuple(comb): [score, traj, reward]})
     return score, traj, reward, fitness_score_table
 
-def deterministic_chinneck_1(scenario_num, x0, x_r_list, time_horizon, reward_max, radius_list, alpha_list, reward_list, U_max, alpha_clf, beta, obstacle_list, dt, \
+def deterministic_chinneck_1(scenario_num, x0, x_r_list, time_horizon, reward_max, t_list, alpha_list, reward_list, U_max, wpt_radius,alpha_clf, beta, obstacle_list, dt, \
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
     
     init_comb = np.ones(shape=(len(x_r_list)))
     eps = 1.0e-5
     fitness_score_table = {}
-    min_r, temp_traj, reward, fitness_score_table = fitness_score_slack(init_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+    min_r, temp_traj, reward, fitness_score_table = fitness_score_slack(init_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius, \
                                     alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, mode='deterministic')
     best_comb = init_comb
     best_comb = init_comb
-    best_traj = {}
+    best_traj = temp_traj
     dropped_constraints = {}
     while abs(min_r) > eps:
         min_r = 1.0e5
@@ -237,7 +225,7 @@ def deterministic_chinneck_1(scenario_num, x0, x_r_list, time_horizon, reward_ma
             if i!=len(x_r_list)-1 and dropped_constraints.get(i)==None:
                 temp_comb = copy.deepcopy(best_comb)
                 temp_comb[i] = 0
-                r, temp_traj, reward_temp, fitness_score_table = fitness_score_slack(temp_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                r, temp_traj, reward_temp, fitness_score_table = fitness_score_slack(temp_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius,\
                                      alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table, mode='deterministic')
                 if r <= min_r:
                     min_r = r

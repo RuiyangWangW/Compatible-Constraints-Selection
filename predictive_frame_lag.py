@@ -10,13 +10,14 @@ from scenario_disturb import *
 
 class predictive_frame_lag:
 
-    def __init__(self, scenario_num, x0, dt, tf, U_max, alpha_clf, beta, num_constraints_hard, x_r_list, radius_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
+    def __init__(self, scenario_num, x0, dt, tf, U_max, wpt_radius, alpha_clf, beta, num_constraints_hard, x_r_list, t_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
         self.scenario_num = scenario_num
         self.x0 = x0
         self.dt = dt
         self.tf = tf
         self.num_steps = int(self.tf/self.dt)
         self.U_max = U_max
+        self.wpt_radius = wpt_radius
         self.num_constraints_hard = num_constraints_hard
         self.num_constraints_soft = 1
         self.num_constraints_clf = 1
@@ -32,7 +33,7 @@ class predictive_frame_lag:
         self.f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
         self.f_max_2 = self.f_max_1/0.5
         self.x_r_list = x_r_list
-        self.radius_list = radius_list
+        self.t_list = t_list
         self.x_r_id = 0
         self.beta = beta
         self.alpha_clf = alpha_clf
@@ -51,15 +52,10 @@ class predictive_frame_lag:
         b1_hard = cp.Parameter((self.num_constraints_hard,1),value=np.zeros((self.num_constraints_hard,1)))
         A1_soft = cp.Parameter((self.num_constraints_soft,2),value=np.zeros((self.num_constraints_soft,2)))
         b1_soft = cp.Parameter((self.num_constraints_soft,1),value=np.zeros((self.num_constraints_soft,1)))
-        A1_clf = cp.Parameter((self.num_constraints_clf,2),value=np.zeros((self.num_constraints_clf,2)))
-        b1_clf = cp.Parameter((self.num_constraints_clf,1),value=np.zeros((self.num_constraints_clf,1)))
-        slack_constraints_clf = cp.Variable((self.num_constraints_clf,1))
         const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + cp.multiply(alpha_soft, h), \
-                  A1_clf @ u1 <= b1_clf + slack_constraints_clf, cp.norm2(u1) <= self.U_max,
-                  alpha_soft >= np.zeros((self.num_constraints_soft)),
-                  slack_constraints_clf >= np.zeros((self.num_constraints_clf,1))]
-        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 100*cp.sum_squares(slack_constraints_clf) 
-                                 + 10*cp.sum_squares(alpha_soft-alpha_0))
+                  cp.norm2(u1) <= self.U_max,
+                  alpha_soft >= np.zeros((self.num_constraints_soft))]
+        objective1 = cp.Minimize( cp.sum_squares( u1 - u1_ref ) + 10*cp.sum_squares(alpha_soft-alpha_0))
         constrained_controller = cp.Problem( objective1, const1 ) 
         
         robot = self.robot
@@ -70,7 +66,7 @@ class predictive_frame_lag:
         r = 0
         reward = 0
         # Define Delta t
-        delta_t = 0
+        curr_t = 0
         t = 0
         lamda_sum = 0
         lamda_sum_list = []
@@ -84,31 +80,25 @@ class predictive_frame_lag:
      
             u_d.value = disturb_value(robot, self.disturbance, self.disturb_std, self.disturb_max, self.f_max_1, self.f_max_2, scenario_num=self.scenario_num)
             x_r = self.x_r_list[self.x_r_id].reshape(2,1)
+            t_limit = self.t_list[self.x_r_id]
             alpha_0.value = np.array([self.alpha_list[self.x_r_id]])
-            radius = self.radius_list[self.x_r_id]
-            v, dv_dx = robot.lyapunov(x_r) 
-            robot.A1_soft[0,:] = dv_dx@robot.g()
-            robot.b1_soft[0] = -dv_dx@(robot.f()) - self.alpha_clf*v - dv_dx@robot.g()@u_d.value
+            radius = self.wpt_radius
+
         
             h1, dh1_dx = robot.static_safe_set(x_r,radius)    
             robot.A1_hard[0,:] = -dh1_dx@robot.g()
             robot.b1_hard[0] = dh1_dx@robot.f() + dh1_dx@robot.g()@u_d.value
             h.value = np.array([h1])
 
-            h2 = (self.y_max - robot.X[1])[0]
-            robot.A1_hard[1,:] = np.array([0,1]).reshape(1,2)@robot.g()
-            robot.b1_hard[1] = -np.array([0,1]).reshape(1,2)@robot.g()@u_d.value + self.beta*h2 - np.array([0,1]).reshape(1,2)@robot.f()
 
             for j in range(0,len(self.obstacle_list)):
                 obs_x_r = self.obstacle_list[j,:].reshape(2,1)
                 h_obs, dh_obs_dx = robot.static_safe_set(obs_x_r,0.2) 
                 h_obs = -h_obs
                 dh_obs_dx = -dh_obs_dx
-                robot.A1_hard[j+2,:] = -dh_obs_dx@robot.g()
-                robot.b1_hard[j+2] = dh_obs_dx@robot.f() + self.beta*h_obs + dh_obs_dx@robot.g()@u_d.value
-
-            A1_clf.value = robot.A1_soft
-            b1_clf.value = robot.b1_soft
+                robot.A1_hard[j+1,:] = -dh_obs_dx@robot.g()
+                robot.b1_hard[j+1] = dh_obs_dx@robot.f() + self.beta*h_obs + dh_obs_dx@robot.g()@u_d.value
+                
             A1_soft.value = robot.A1_hard[0,:].reshape(-1,2)
             b1_soft.value = robot.b1_hard[0,:].reshape(-1,1)
             A1_hard.value = robot.A1_hard[1:,:].reshape(-1,2)
@@ -126,13 +116,13 @@ class predictive_frame_lag:
             if constrained_controller.status != "optimal" and constrained_controller.status != "optimal_inaccurate":
                 flag = "fail"
 
-            delta_t += self.dt
+            curr_t += self.dt
             x_list.append(robot.X[0])
             y_list.append(robot.X[1])
             t += self.dt
             t_list.append(t)
 
-            if delta_t>self.delta_t_limit:
+            if curr_t > t_limit:
                 flag = "fail"
 
             if flag == "fail":
@@ -149,7 +139,6 @@ class predictive_frame_lag:
                     break
                 reward += self.reward_list[self.x_r_id]
                 self.x_r_id += 1
-                delta_t = 0
             else:
                 continue
         if flag == "success":
@@ -157,7 +146,7 @@ class predictive_frame_lag:
         else:
             r = sum(lamda_sum_list)
 
-        return x_list, y_list, t_list, flag, r, reward
+        return x_list, y_list, t_list, lamda_sum_list, flag, r, reward
 
 def rand_list_init(num_states):
     l = np.ones(shape=(num_states,))
@@ -166,8 +155,8 @@ def rand_list_init(num_states):
     l = l.tolist()
     return l
 
-def fitness_score_lag(comb, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, \
-                    reward_list, U_max,  alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max,\
+def fitness_score_lag(comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, \
+                    reward_list, U_max, wpt_radius,  alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max,\
                     num_constraints_hard, fitness_score_table):
     
     if fitness_score_table.get(tuple(comb)) != None:
@@ -177,22 +166,22 @@ def fitness_score_lag(comb, scenario_num, x0, time_horizon, reward_max, x_r_list
     num_states = len(x_r_list)    
     reward_weight = 0.01
     x_r_list_comb = []
-    radii_comb = []
+    time_comb = []
     alpha_list_comb = []
     reward_list_comb = []
     for i in range(num_states):
         if comb[i] == 1:
             x_r_list_comb.append(x_r_list[i])
-            radii_comb.append(radius_list[i])
+            time_comb.append(t_list[i])
             alpha_list_comb.append(alpha_list[i])
             reward_list_comb.append(reward_list[i])
 
     if (len(x_r_list_comb)>0):
-        pred_frame = predictive_frame_lag(scenario_num,x0,dt,time_horizon,U_max,alpha_clf,beta,num_constraints_hard=num_constraints_hard, \
-                                    x_r_list=x_r_list_comb, radius_list=radii_comb, alpha_list=alpha_list_comb, \
+        pred_frame = predictive_frame_lag(scenario_num,x0,dt,time_horizon,U_max,wpt_radius,alpha_clf,beta,num_constraints_hard=num_constraints_hard, \
+                                    x_r_list=x_r_list_comb, t_list=time_comb, alpha_list=alpha_list_comb, \
                                     reward_list = reward_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
-        x_list, y_list, t_list, flag, score, reward = pred_frame.forward()
+        x_list, y_list, t_list, lamda_sum_list, flag, score, reward = pred_frame.forward()
         if flag == "success":
             traj = {"x": x_list, "y": y_list, "t": t_list}
         else:
@@ -200,11 +189,12 @@ def fitness_score_lag(comb, scenario_num, x0, time_horizon, reward_max, x_r_list
     else:
         reward = 0
         traj = {}
+        lamda_sum_list = []
     
     score += (reward_max-reward)*reward_weight
     fitness_score_table.update({tuple(comb): [traj, score, reward]})
 
-    return traj, score, reward, fitness_score_table
+    return traj, lamda_sum_list, score, reward, fitness_score_table
 
 def mutate_process(comb, mutation_rate):
     mutated_comb = []
@@ -299,15 +289,15 @@ def genetic_comb_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, radiu
     comb_min.append(1)
     return iteration, comb_min, traj_temp, reward_best
 
-def deterministic_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, radius_list, alpha_list, reward_list, U_max, alpha_clf, beta, obstacle_list, dt, \
+def deterministic_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, t_list, alpha_list, reward_list, U_max, wpt_radius,alpha_clf, beta, obstacle_list, dt, \
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
     
     init_comb = np.ones(shape=(len(x_r_list)))
     fitness_score_table = {}
-    traj, min_r, best_reward, fitness_score_table = fitness_score_lag(init_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+    traj, _, min_r, best_reward, fitness_score_table = fitness_score_lag(init_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius,\
                                     alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     best_comb = init_comb
-    best_traj = {}
+    best_traj = traj
     dropped_constraints = {}
     while traj == {}:
         min_r = 1.0e6
@@ -315,7 +305,7 @@ def deterministic_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, radi
             if i!=len(x_r_list)-1 and dropped_constraints.get(i)==None:
                 temp_comb = copy.deepcopy(best_comb)
                 temp_comb[i] = 0
-                traj, r, reward, fitness_score_table = fitness_score_lag(temp_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, radius_list, alpha_list, reward_list, U_max, \
+                traj, _, r, reward, fitness_score_table = fitness_score_lag(temp_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius,\
                                      alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
                 if r <= min_r:
                     min_r = r
@@ -327,4 +317,34 @@ def deterministic_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, radi
         if len(dropped_constraints) == len(x_r_list)-1:
             break
     iteration = 1
-    return iteration, best_comb, best_traj, best_reward, 
+    return iteration, best_comb, best_traj, best_reward
+
+def greedy_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, t_list, alpha_list, reward_list, U_max, wpt_radius, alpha_clf, beta, obstacle_list, dt, \
+                disturbance, disturb_std, disturb_max, num_constraints_hard):
+    
+    init_comb = np.ones(shape=(len(x_r_list)))
+    fitness_score_table = {}
+    traj, lamda_sum_list, _, best_reward, fitness_score_table = fitness_score_lag(init_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius,\
+                                    alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+    best_comb = init_comb
+    best_traj = {}
+    active_constraints = []
+    for i in range(len(x_r_list)):
+        active_constraints.append(i)    
+    while traj == {}:
+        candidate_idx = np.argmax(np.array([lamda_sum_list]))
+        if (active_constraints[candidate_idx] == len(x_r_list)-1):
+            lamda_sum_list[candidate_idx] = 0
+            candidate_idx = np.argmax(np.array([lamda_sum_list]))
+        best_comb[active_constraints[candidate_idx]] = 0
+        temp_active_constraints = []
+        for idx in active_constraints:
+            if idx!=active_constraints[candidate_idx]:
+                temp_active_constraints.append(idx)
+        active_constraints = temp_active_constraints
+        traj, lamda_sum_list, _, best_reward, fitness_score_table = fitness_score_lag(best_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius,\
+                                    alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
+        
+    iteration = 1
+    best_traj = traj
+    return iteration, best_comb, best_traj, best_reward

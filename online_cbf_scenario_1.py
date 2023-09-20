@@ -20,13 +20,14 @@ plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.1
 t = 0
-tf = 50
+tf = 60
 num_steps = int(tf/dt)
+final_wpt_time = 60
 
 # Define Parameters for CLF and CBF
 U_max = 1.0
 d_max = 0.6
-alpha_0 = 0.4
+alpha_0 = 1.2
 alpha_clf = 0.4
 beta = 1.8
 num_constraints_soft1 = 1
@@ -65,20 +66,18 @@ centroids[5][1] = 0.0
 centroids[6][0] = -4.0
 centroids[6][1] = 3.0
 
-rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
-# Add the patch to the Axes
-ax.add_patch(rect)
-rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_1 = np.arange(start=-3+0.2,stop=-0.6+0.2, step=0.4)
-obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+1.2
+rect = patches.Rectangle((-4.9, y_max-0.2), 9.8, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.8+0.1,stop=4.8+0.1, step=0.2)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.0
 obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
-ax.add_patch(rect)
-obstacle_list_y_2 = np.arange(start=-1+0.2, stop=1.4+0.2, step=0.4)
-obstacle_list_x_2 = np.zeros(shape=obstacle_list_y_2.shape)+1.2
+rect = patches.Rectangle((-2.9, 0.8), 2.2, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.8+0.1,stop=-0.8+0.1, step=0.2)
+obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.0
 obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
+# Add the patch to the Axes
+ax.add_patch(rect)
 obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
 
 num_constraints_hard1 = obstacle_list.shape[0] + 1
@@ -95,6 +94,8 @@ Safe_Set_Series = Safe_Set_Series2D(centroids=centroids,radii=radii,alpha_list=a
 
 reward_list = np.array([1,1,1,1,1,1,0])
 reward_max = np.sum(reward_list)
+t_step = int(final_wpt_time/len(reward_list))
+t_list = np.arange(t_step, final_wpt_time+t_step, t_step)
 
 for i in range(0,centroids.shape[0]):
     if i != centroids.shape[0]-1:
@@ -132,8 +133,8 @@ x0 = np.array([5.0,0.0])
 total_reward = 0
 total_iter = 0
 for i in range(1):
-    iteration, best_comb, best_traj, reward = deterministic_lag(scenario_num=1,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
-                                                              alpha_list=alpha_list, reward_list=reward_list, U_max = U_max, alpha_clf=alpha_clf, beta=beta, dt=dt, disturbance=disturbance, \
+    iteration, best_comb, best_traj, reward = deterministic_lag(scenario_num=1,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,t_list=t_list, \
+                                                              alpha_list=alpha_list, reward_list=reward_list, U_max = U_max, wpt_radius=d_max,alpha_clf=alpha_clf, beta=beta, dt=dt, disturbance=disturbance, \
                                                             disturb_std=disturb_std, disturb_max=disturb_max, obstacle_list=obstacle_list, \
                                                             num_constraints_hard=num_constraints_hard1)
 

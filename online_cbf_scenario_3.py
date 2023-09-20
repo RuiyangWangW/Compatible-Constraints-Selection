@@ -20,8 +20,10 @@ plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
 dt = 0.1
 t = 0
-tf = 50
+tf = 60
 num_steps = int(tf/dt)
+final_wpt_time = 60
+
 
 # Define Parameters for CLF and CBF
 U_max = 1.0
@@ -46,65 +48,69 @@ num_points = 15
 centroids = PointsInCircum(r=5,n=(num_points*2))[1:num_points+1]
 
 centroids[0][0] = 4.5
-centroids[0][1] = 1.0
+centroids[0][1] = 1.8
 
 centroids[1][0] = 3.8
-centroids[1][1] = 2.3
+centroids[1][1] = 2.8
 
 centroids[2][0] = 3.2
 centroids[2][1] = 3.8
 
 centroids[3][0] = 2.0
-centroids[3][1] = 5.0
+centroids[3][1] = 4.8
 
-centroids[4][0] = 0.8
-centroids[4][1] = 5.0
+centroids[4][0] = 0.7
+centroids[4][1] = 5.2
 
-centroids[5][0] = -0.8
-centroids[5][1] = 5.0
+centroids[5][0] = -0.7
+centroids[5][1] = 5.2
 
 centroids[6][0] = -2.0
-centroids[6][1] = 5.0
+centroids[6][1] = 4.8
 
-centroids[7][0] = -1.4
-centroids[7][1] = 4.0
+centroids[7][0] = -1.6
+centroids[7][1] = 3.8
 
 centroids[8][0] = -0.6
 centroids[8][1] = 2.6
 
 centroids[9][0] = 0.2
-centroids[9][1] = 1.3
+centroids[9][1] = 1.5
 
-centroids[10][0] = 0.0
+centroids[10][0] = -0.75
 centroids[10][1] = 0.0
 
-centroids[11][0] = -1.0
+centroids[11][0] = -2.5
 centroids[11][1] = 0.0
 
-centroids[12][0] = -3.0
-centroids[12][1] = 0.0
+centroids[12][0] = -3.5
+centroids[12][1] = 1.5
 
-centroids[13][0] = -3.8
-centroids[13][1] = 1.0
+centroids[13][0] = -4.0
+centroids[13][1] = 2.5
 
-centroids[14][0] = -4.0
-centroids[14][1] = 2.0
+centroids[14][0] = -4.5
+centroids[14][1] = 3.5
 
-rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
-# Add the patch to the Axes
-ax.add_patch(rect)
-rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_1 = np.arange(start=-3+0.2,stop=-0.6+0.2, step=0.4)
-obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+1.2
+rect = patches.Rectangle((-4.9, y_max-0.2), 9.8, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.8+0.1,stop=4.8+0.1, step=0.2)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.0
 obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
-ax.add_patch(rect)
-obstacle_list_y_2 = np.arange(start=-1+0.2, stop=1.4+0.2, step=0.4)
-obstacle_list_x_2 = np.zeros(shape=obstacle_list_y_2.shape)+1.2
+rect = patches.Rectangle((-2.9, 0.8), 2.2, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.8+0.1,stop=-0.8+0.1, step=0.2)
+obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.0
 obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
+# Add the patch to the Axes
+ax.add_patch(rect)
+rect = patches.Rectangle((0.8, -0.9), 0.4, 2.2, linewidth=1, edgecolor='none', facecolor='k')
+ax.add_patch(rect)
+obstacle_list_y_3 = np.arange(start=-0.8+0.1, stop=1.2+0.1, step=0.2)
+obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.0
+obstacle_list_3 = np.vstack((obstacle_list_x_3,obstacle_list_y_3)).T
 obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
+obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
 
 num_constraints_hard1 = obstacle_list.shape[0] + 1
 
@@ -118,8 +124,11 @@ radii = np.zeros((centroids.shape[0],))+d_max
 alpha_list = np.zeros((centroids.shape[0],))+alpha_0
 Safe_Set_Series = Safe_Set_Series2D(centroids=centroids,radii=radii,alpha_list=alpha_list)
 
-reward_list = np.array([1,1,1,1,1,2,2,2,2,2,4,4,4,4,0])
+reward_list = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,0])
 reward_max = np.sum(reward_list)
+t_step = int(final_wpt_time/len(reward_list))
+t_list = np.arange(t_step, final_wpt_time+t_step, t_step)
+
 
 for i in range(0,centroids.shape[0]):
     if i != centroids.shape[0]-1:
@@ -158,8 +167,8 @@ x0 = np.array([5.0,0.0])
 total_reward = 0
 total_iter = 0
 for i in range(1):
-    iteration, best_comb, best_traj, reward = genetic_comb_slack(scenario_num=3,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
-                                                              alpha_list=alpha_list, reward_list=reward_list, U_max = U_max, alpha_clf=alpha_clf, beta=beta, dt=dt, disturbance=disturbance, \
+    iteration, best_comb, best_traj, reward = deterministic_chinneck_1(scenario_num=3,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,t_list=t_list, \
+                                                              alpha_list=alpha_list, reward_list=reward_list, U_max = U_max, wpt_radius=d_max,alpha_clf=alpha_clf, beta=beta, dt=dt, disturbance=disturbance, \
                                                             disturb_std=disturb_std, disturb_max=disturb_max, obstacle_list=obstacle_list, \
                                                             num_constraints_hard=num_constraints_hard1)
 
