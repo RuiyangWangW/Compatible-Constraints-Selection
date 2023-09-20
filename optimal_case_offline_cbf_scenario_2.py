@@ -88,6 +88,26 @@ obstacle_list_x_2 = np.zeros(shape=obstacle_list_y_2.shape)+1.2
 obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
 obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
 
+rect = patches.Rectangle((-4.9, y_max-0.2), 9.8, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.8+0.1,stop=4.8+0.1, step=0.2)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.0
+obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
+# Add the patch to the Axes
+ax.add_patch(rect)
+rect = patches.Rectangle((-2.9, 0.8), 2.2, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.8+0.1,stop=-0.8+0.1, step=0.2)
+obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.0
+obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
+# Add the patch to the Axes
+ax.add_patch(rect)
+rect = patches.Rectangle((0.8, -0.9), 0.4, 2.2, linewidth=1, edgecolor='none', facecolor='k')
+ax.add_patch(rect)
+obstacle_list_y_3 = np.arange(start=-0.8+0.1, stop=1.2+0.1, step=0.2)
+obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.0
+obstacle_list_3 = np.vstack((obstacle_list_x_3,obstacle_list_y_3)).T
+obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
+obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
+
 num_constraints_hard1 = obstacle_list.shape[0] + 1
 
 for i in range(0,obstacle_list.shape[0]):

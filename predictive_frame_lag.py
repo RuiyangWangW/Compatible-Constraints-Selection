@@ -10,7 +10,7 @@ from scenario_disturb import *
 
 class predictive_frame_lag:
 
-    def __init__(self, scenario_num, x0, dt, tf, U_max, wpt_radius, alpha_clf, beta, num_constraints_hard, x_r_list, t_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
+    def __init__(self, scenario_num, robot_type, x0, dt, tf, U_max, wpt_radius, alpha_clf, beta, num_constraints_hard, x_r_list, t_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
         self.scenario_num = scenario_num
         self.x0 = x0
         self.dt = dt
@@ -24,6 +24,7 @@ class predictive_frame_lag:
         self.alpha_list = alpha_list
         self.obstacle_list = obstacle_list
         self.reward_list = reward_list
+        
         self.robot = SingleIntegrator2D(self.x0, self.dt, ax=None, id = 0, color='r', palpha=1.0, \
                                         num_constraints_hard = self.num_constraints_soft+self.num_constraints_hard,
                                         num_constraints_soft = self.num_constraints_clf, plot=False)
@@ -52,6 +53,7 @@ class predictive_frame_lag:
         b1_hard = cp.Parameter((self.num_constraints_hard,1),value=np.zeros((self.num_constraints_hard,1)))
         A1_soft = cp.Parameter((self.num_constraints_soft,2),value=np.zeros((self.num_constraints_soft,2)))
         b1_soft = cp.Parameter((self.num_constraints_soft,1),value=np.zeros((self.num_constraints_soft,1)))
+
         const1 = [A1_hard @ u1 <= b1_hard, A1_soft @ u1 <= b1_soft + cp.multiply(alpha_soft, h), \
                   cp.norm2(u1) <= self.U_max,
                   alpha_soft >= np.zeros((self.num_constraints_soft))]
@@ -293,6 +295,7 @@ def deterministic_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, t_li
                 disturbance, disturb_std, disturb_max, num_constraints_hard):
     
     init_comb = np.ones(shape=(len(x_r_list)))
+
     fitness_score_table = {}
     traj, _, min_r, best_reward, fitness_score_table = fitness_score_lag(init_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius,\
                                     alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
@@ -327,7 +330,7 @@ def greedy_lag(scenario_num, x0, x_r_list, time_horizon, reward_max, t_list, alp
     traj, lamda_sum_list, _, best_reward, fitness_score_table = fitness_score_lag(init_comb, scenario_num, x0, time_horizon, reward_max, x_r_list, t_list, alpha_list, reward_list, U_max, wpt_radius,\
                                     alpha_clf, beta, obstacle_list, dt, disturbance, disturb_std, disturb_max, num_constraints_hard, fitness_score_table)
     best_comb = init_comb
-    best_traj = {}
+    best_traj = traj
     active_constraints = []
     for i in range(len(x_r_list)):
         active_constraints.append(i)    

@@ -16,7 +16,7 @@ from discretize_helper_scenario_2 import *
 
 plt.rcParams.update({'font.size': 15}) #27
 # Sim Parameters                  
-dt = 0.2
+dt = 0.1
 tf = 60
 num_steps = int(tf/dt)
 
@@ -65,19 +65,36 @@ centroids[7][1] = 0.0
 centroids[8][0] = -4.0
 centroids[8][1] = 3.0
 
-rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((-4.9, y_max-0.2), 9.8, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.8+0.1,stop=4.8+0.1, step=0.2)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.0
+obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((-2.9, 0.8), 2.2, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.8+0.1,stop=-0.8+0.1, step=0.2)
+obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.0
+obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
+# Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((0.8, -0.9), 0.4, 2.2, linewidth=1, edgecolor='none', facecolor='k')
 ax.add_patch(rect)
+obstacle_list_y_3 = np.arange(start=-0.8+0.1, stop=1.2+0.1, step=0.2)
+obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.0
+obstacle_list_3 = np.vstack((obstacle_list_x_3,obstacle_list_y_3)).T
+obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
+obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
+
+for i in range(0,obstacle_list.shape[0]):
+    circle = patches.Circle(obstacle_list[i,:], radius=0.2, color='black', zorder=0)
+    ax.add_patch(circle)
+ax.axis('equal')
 
 centroids_comb = []
 radii_comb = []
 alpha_comb = []
 
-comb = [1,1,1,1,0,0,1,0,1]
+comb = [1,1,1,1,1,1,1,0,1]
 for i in range(num_points):
     if comb[i] == 1:
         centroids_comb.append(centroids[i,:])
@@ -96,16 +113,16 @@ for i in range(0,centroids_comb.shape[0]):
     else:
         circle = patches.Circle(centroids_comb[i,:], radius=d_max, color='red', zorder=10)
     ax.add_patch(circle)
-circle = patches.Circle(centroids[4,:], radius=d_max, color='blue', zorder=0)
-ax.add_patch(circle)
-circle = patches.Circle(centroids[5,:], radius=d_max, color='blue', zorder=0)
-ax.add_patch(circle)
+#circle = patches.Circle(centroids[4,:], radius=d_max, color='blue', zorder=0)
+#ax.add_patch(circle)
+#circle = patches.Circle(centroids[5,:], radius=d_max, color='blue', zorder=0)
+#ax.add_patch(circle)
 circle = patches.Circle(centroids[7,:], radius=d_max, color='blue', zorder=0)
 ax.add_patch(circle)
 
 #Define Disturbance
 disturbance = True
-disturb_max = 1.5*U_max
+disturb_max = 1.25*U_max
 disturb_std = 1.5
 f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1/0.5
@@ -128,14 +145,14 @@ control_hash_table = {}
 in_control_hash_table = {}
 step = 0.1
 x_range = np.arange(start=x_min, stop=x_max+step, step=step)
-y_range = np.arange(start=y_min, stop=y_max+step, step=step)
+y_range = np.arange(start=y_min, stop=y_max-0.2+step, step=step)
 feasible_candidates = []
 
 for x in x_range:
     for y in y_range:
-        if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+        if x > -2.9 and x < -0.7 and y < 1.2 and y > 0.8:
             continue
-        if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
+        if x > 0.8 and x < 1.2 and y < 1.3 and y > -0.9:
             continue
         x0 = np.array([x,y])
         feasible_candidates.append(x0)
@@ -154,11 +171,11 @@ with multiprocessing.Pool() as pool:
             y = forward_cell[i+1:]
             x = x_range[int(x)]
             y = y_range[int(y)]
-            if y > y_max or y < y_min or x > x_max or x < x_min:
+            if y > y_max-0.2 or y < y_min or x > x_max or x < x_min:
                 continue
-            if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+            if x > -2.9 and x < -0.7 and y < 1.2 and y > 0.8:
                 continue
-            if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
+            if x > 0.8 and x < 1.2 and y < 1.3 and y > -0.9:
                 continue
             if (in_control_hash_table.get(forward_cell)==None):
                 backward_set = np.array([x0_key])
@@ -374,11 +391,10 @@ print(len(pos_in_success_table))
 #plt.plot(x_success_list,y_success_list,'b.')
 print(len(x_success_list))
 
-print('reward', reward-1)
-ax.axis('equal')
+plt.ioff()
 im = ax.scatter(x_list,y_list,cmap='copper',c=t_list, zorder=100)
 cbar = plt.colorbar(im, ax=ax)
 cbar.set_label('time(s) colorbar')
-plt.ioff()
 plt.show()
+
 

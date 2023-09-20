@@ -192,7 +192,7 @@ def fitness_score_slack(comb, scenario_num, x0, time_horizon, reward_max, x_r_li
                                     reward_list = reward_list_comb, obstacle_list=obstacle_list,\
                                     disturbance=disturbance, disturb_std=disturb_std, disturb_max=disturb_max)
         score, reward, x_list, y_list, t_list = pred_frame.forward()
-        if reward > 0:
+        if reward > 0 or len(x_r_list_comb)==1:
             traj = {"x": x_list, "y": y_list, "t": t_list}
         else:
             traj = {}

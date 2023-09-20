@@ -83,13 +83,25 @@ centroids[13][1] = 1.0
 centroids[14][0] = -4.0
 centroids[14][1] = 2.0
 
-rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((-4.9, y_max-0.2), 9.8, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.8+0.1,stop=4.8+0.1, step=0.2)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.0
+obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((-2.9, 0.8), 2.2, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.8+0.1,stop=-0.8+0.1, step=0.2)
+obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.0
+obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
+# Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((0.8, -0.9), 0.4, 2.2, linewidth=1, edgecolor='none', facecolor='k')
 ax.add_patch(rect)
+obstacle_list_y_3 = np.arange(start=-0.8+0.1, stop=1.2+0.1, step=0.2)
+obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.0
+obstacle_list_3 = np.vstack((obstacle_list_x_3,obstacle_list_y_3)).T
+obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
+obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
 
 centroids_comb = []
 radii_comb = []
@@ -151,9 +163,9 @@ feasible_candidates = []
 
 for x in x_range:
     for y in y_range:
-        if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+        if x > -2.9 and x < -0.7 and y < 1.2 and y > 0.8:
             continue
-        if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
+        if x > 0.8 and x < 1.2 and y < 1.3 and y > -0.9:
             continue
         x0 = np.array([x,y])
         feasible_candidates.append(x0)
@@ -172,11 +184,11 @@ with multiprocessing.Pool() as pool:
             y = forward_cell[i+1:]
             x = x_range[int(x)]
             y = y_range[int(y)]
-            if y > y_max or y < y_min or x > x_max or x < x_min:
+            if y > y_max-0.2 or y < y_min or x > x_max or x < x_min:
                 continue
-            if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+            if x > -2.9 and x < -0.7 and y < 1.2 and y > 0.8:
                 continue
-            if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
+            if x > 0.8 and x < 1.2 and y < 1.3 and y > -0.9:
                 continue
             if (in_control_hash_table.get(forward_cell)==None):
                 backward_set = np.array([x0_key])

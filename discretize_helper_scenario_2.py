@@ -6,12 +6,12 @@ from robot_models.SingleIntegrator2D import *
 
 def discretize_u_forward_cal(x0):
     #Define Constants
-    dt = 0.2
+    dt = 0.1
     U_max = 1.0
 
     #Define Disturbance
     disturbance = True
-    disturb_max = 1.5*U_max
+    disturb_max = 1.25*U_max
     disturb_std = 1.5
     f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
     f_max_2 = f_max_1/0.5
@@ -24,7 +24,7 @@ def discretize_u_forward_cal(x0):
     step = 0.1
 
     x_range = np.arange(start=x_min, stop=x_max+step, step=step)
-    y_range = np.arange(start=y_min, stop=y_max+step, step=step)
+    y_range = np.arange(start=y_min, stop=y_max-0.2+step, step=step)
 
     # Define u_list
     u_step = 0.1
@@ -70,11 +70,11 @@ def discretize_u_forward_cal(x0):
         new_pos = robot.X
         x = new_pos[0]
         y = new_pos[1]
-        if y > y_max or y < y_min or x > x_max or x < x_min:
+        if y > y_max-0.2 or y < y_min or x > x_max or x < x_min:
             continue
-        if x > -3.0 and x < -0.6 and y < 1.4 and y > 1.0:
+        if x > -2.9 and x < -0.7 and y < 1.2 and y > 0.8:
             continue
-        if x > 1.0 and x < 2.0 and y < 1.4 and y > -1.0:
+        if x > 0.8 and x < 1.2 and y < 1.3 and y > -0.9:
             continue
         pos_key = str(int((x-x_min)/step))+","+str(int((y-y_min)/step))
         added = has_been_added.get(pos_key)

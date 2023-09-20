@@ -119,7 +119,7 @@ ax.axis('equal')
 
 #Define Disturbance
 disturbance = True
-disturb_max = 1.5*U_max
+disturb_max = 1.25*U_max
 disturb_std = 1.5
 f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1/0.5
@@ -146,7 +146,7 @@ x0 = np.array([5.0,0.0])
 total_reward = 0
 total_iter = 0
 for i in range(1):
-    iteration, best_comb, best_traj, reward = deterministic_chinneck_1(scenario_num=2,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,t_list=t_list, \
+    iteration, best_comb, best_traj, reward = greedy_lag(scenario_num=2,x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,t_list=t_list, \
                                                               alpha_list=alpha_list, reward_list=reward_list, U_max = U_max, wpt_radius=d_max,alpha_clf=alpha_clf, beta=beta, dt=dt, disturbance=disturbance, \
                                                             disturb_std=disturb_std, disturb_max=disturb_max, obstacle_list=obstacle_list, \
                                                             num_constraints_hard=num_constraints_hard1)
