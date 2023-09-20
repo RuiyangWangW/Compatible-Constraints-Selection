@@ -21,8 +21,8 @@ plt.rcParams.update({'font.size': 15}) #27
 dt = 0.1
 t = 0
 #tf = 120 # for Single Integrator 
-t_horizon = 30
-final_wpt_time = 100
+t_horizon = 60
+final_wpt_time = 60
 # Define Parameters for CLF and CBF
 U_max = 1.0
 #U_max = 2.0
@@ -47,22 +47,22 @@ ax.set_xlabel("X")
 ax.set_ylabel("Y")
 # Define Series of Safe Sets
 x_r_list = scenario_waypoints(scenario_num,robot_type)
-rect = patches.Rectangle((-4.8, y_max-0.2), 9.6, 0.8, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_1 = np.arange(start=-4.6+0.2,stop=4.6+0.2, step=0.4)
-obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.2
+rect = patches.Rectangle((-4.9, y_max-0.2), 9.8, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.8+0.1,stop=4.8+0.1, step=0.2)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.0
 obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((-2.8, 0.8), 2.0, 0.8, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_2 = np.arange(start=-2.6+0.2,stop=-1.0+0.2, step=0.4)
-obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.2
+rect = patches.Rectangle((-2.9, 0.8), 2.2, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.8+0.1,stop=-0.8+0.1, step=0.2)
+obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.0
 obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((0.8, -0.8), 0.8, 2.0, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((0.8, -0.9), 0.4, 2.2, linewidth=1, edgecolor='none', facecolor='k')
 ax.add_patch(rect)
-obstacle_list_y_3 = np.arange(start=-0.6+0.2, stop=1.0+0.2, step=0.4)
-obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.2
+obstacle_list_y_3 = np.arange(start=-0.8+0.1, stop=1.2+0.1, step=0.2)
+obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.0
 obstacle_list_3 = np.vstack((obstacle_list_x_3,obstacle_list_y_3)).T
 obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
 obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
@@ -70,7 +70,7 @@ obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
 num_constraints_hard1 = obstacle_list.shape[0]
 
 for i in range(0,obstacle_list.shape[0]):
-    circle = patches.Circle(obstacle_list[i,:], radius=0.4, color='black', zorder=0)
+    circle = patches.Circle(obstacle_list[i,:], radius=0.2, color='black', zorder=0)
     ax.add_patch(circle)
 ax.axis('equal')
 
@@ -92,8 +92,8 @@ for i in range(0,x_r_list.shape[0]):
 ax.axis('equal')
 
 #Define Disturbance
-if_disturb = True
-disturb_max = 1.5*U_max
+if_disturb = False
+disturb_max = 1.25*U_max
 disturb_std = 1.5
 f_max_1 = 1/(disturb_std*math.sqrt(2*math.pi))
 f_max_2 = f_max_1*2.0
@@ -134,7 +134,7 @@ else:
 total_reward = 0
 total_iter = 0
 
-pred_frame = predictive_frame_slack(scenario_num=scenario_num, robot_type=robot_type, x0=x0, dt=dt, tf=t_horizon, U_max=U_max,
+pred_frame = predictive_frame_lag(scenario_num=scenario_num, robot_type=robot_type, x0=x0, dt=dt, tf=t_horizon, U_max=U_max,
                                   V_max=V_max, alpha_values=alpha_values, beta_values=beta_values, num_constraints_hard=num_constraints_hard1,
                                   x_r_list=x_r_list,wpt_radius=d_max,t_list=t_list,reward_list=reward_list,obstacle_list=obstacle_list,
                                   if_disturb=if_disturb, disturb_std=disturb_std, disturb_max=disturb_max)
@@ -164,7 +164,7 @@ while curr_wpt_best < x_r_list.shape[0]:
     pred_frame.t_list = adaptive_t_list
     pred_frame.reward_list = adaptive_reward_list
     
-    curr_wpt_best, comb_best, traj_best, reward_best = deterministic_slack(x0=x0, curr_time=curr_t, pred_frame=pred_frame)
+    curr_wpt_best, comb_best, traj_best, reward_best = deterministic_lag(x0=x0, curr_time=curr_t, pred_frame=pred_frame)
 
     if traj_best["x"].shape[1] == 0:
         break
