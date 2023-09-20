@@ -10,7 +10,7 @@ from scenario_disturb import *
 
 class predictive_frame_lag:
 
-    def __init__(self, scenario_num, robot_type, x0, dt, tf, U_max, wpt_radius, alpha_clf, beta, num_constraints_hard, x_r_list, t_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
+    def __init__(self, scenario_num, x0, dt, tf, U_max, wpt_radius, alpha_clf, beta, num_constraints_hard, x_r_list, t_list, alpha_list, reward_list, obstacle_list, disturbance, disturb_std, disturb_max):
         self.scenario_num = scenario_num
         self.x0 = x0
         self.dt = dt
