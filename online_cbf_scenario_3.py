@@ -31,11 +31,14 @@ d_max = 0.4
 V_max = 1.0
 #alpha_values = [1.8,0.0] 
 #beta_values = [0.8,0.0]
-alpha_values = [0.4, 0.4]
-beta_values = [1.4, 1.4]
+#alpha_values = [0.2, 0.2]
+#beta_values = [2.0, 2.0]
+alpha_values = [0.2, 0.2]
+beta_values = [2.0, 2.0]
 robot_type = 'DoubleIntegrator2D'
 scenario_num = 3
 num_constraints_soft1 = 1
+
 # Plot                  
 plt.ion()
 x_min = -6
@@ -48,25 +51,26 @@ ax.set_xlabel("X")
 ax.set_ylabel("Y")
 # Define Series of Safe Sets
 centroids = scenario_waypoints(scenario_num,robot_type)
-rect = patches.Rectangle((-5, y_max), 10, 0.5, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_1 = np.arange(start=-5+0.2,stop=5.0+0.2, step=0.4)
-obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.2
+rect = patches.Rectangle((-4.9, y_max-0.2), 9.8, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_1 = np.arange(start=-4.8+0.1,stop=4.8+0.1, step=0.2)
+obstacle_list_y_1 = np.zeros(shape=obstacle_list_x_1.shape)+6.0
 obstacle_list_1 = np.vstack((obstacle_list_x_1,obstacle_list_y_1)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((-3, 1.0), 2.4, 0.4, linewidth=1, edgecolor='none', facecolor='k')
-obstacle_list_x_2 = np.arange(start=-3+0.2,stop=-0.6+0.2, step=0.4)
-obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.2
+rect = patches.Rectangle((-2.9, 0.8), 2.2, 0.4, linewidth=1, edgecolor='none', facecolor='k')
+obstacle_list_x_2 = np.arange(start=-2.8+0.1,stop=-0.8+0.1, step=0.2)
+obstacle_list_y_2 = np.zeros(shape=obstacle_list_x_2.shape)+1.0
 obstacle_list_2 = np.vstack((obstacle_list_x_2,obstacle_list_y_2)).T
 # Add the patch to the Axes
 ax.add_patch(rect)
-rect = patches.Rectangle((1, -1), 0.4, 2.4, linewidth=1, edgecolor='none', facecolor='k')
+rect = patches.Rectangle((0.8, -0.9), 0.4, 2.2, linewidth=1, edgecolor='none', facecolor='k')
 ax.add_patch(rect)
-obstacle_list_y_3 = np.arange(start=-1+0.2, stop=1.4+0.2, step=0.4)
-obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.2
+obstacle_list_y_3 = np.arange(start=-0.8+0.1, stop=1.2+0.1, step=0.2)
+obstacle_list_x_3 = np.zeros(shape=obstacle_list_y_3.shape)+1.0
 obstacle_list_3 = np.vstack((obstacle_list_x_3,obstacle_list_y_3)).T
 obstacle_list = np.vstack((obstacle_list_1,obstacle_list_2))
 obstacle_list = np.vstack((obstacle_list,obstacle_list_3))
+
 
 num_constraints_hard1 = obstacle_list.shape[0] + 1
 
@@ -75,13 +79,12 @@ for i in range(0,obstacle_list.shape[0]):
     ax.add_patch(circle)
 ax.axis('equal')
 
-
 radii = np.zeros((centroids.shape[0],))+d_max
 Safe_Set_Series = Safe_Set_Series2D(centroids=centroids,radii=radii)
 
 #reward_list = np.array([1,1,1,1,1,2,2,2,2,2,4,4,4,4,0])
-reward_list = np.array([4,4,4,4,4,2,2,2,2,2,1,1,1,1,0])
-#reward_list = np.array([1,2,3,4,1,2,3,4,1,2,3,2,1,2,0])
+#reward_list = np.array([4,4,4,4,4,2,2,2,2,2,1,1,1,1,0])
+reward_list = np.array([1,2,3,4,1,2,3,4,1,2,3,2,1,2,0])
 #reward_list = np.array([1,1,1,1,1,1,1,1,1,1,1,1,1,1,0])
 reward_max = np.sum(reward_list)
 
@@ -123,20 +126,18 @@ metadata = dict(title='Movie Test', artist='Matplotlib',comment='Movie support!'
 writer = FFMpegWriter(fps=15, metadata=metadata)
 movie_name = 'series_of_safesets_small_wind_cbf_online.mp4'
 
-
 best_idx = 0
 best_reward = 0
 
-
 if robot_type == 'DoubleIntegrator2D': 
-    x0 = np.array([5.0,0.0,0.0,0.0])
+    x0 = np.array([4.8,0.0,0.0,0.0])
 else:
     x0 = np.array([5.0,0.0])
 
 total_reward = 0
 total_iter = 0
 for i in range(1):
-    iteration, best_comb, best_traj, reward = genetic_comb_slack(robot_type=robot_type, scenario_num=scenario_num, x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
+    iteration, best_comb, best_traj, reward = deterministic_lag(robot_type=robot_type, scenario_num=scenario_num, x0=x0, x_r_list=centroids, time_horizon=tf, reward_max=reward_max,radius_list=radii, \
                                                               alpha_values=alpha_values, beta_values=beta_values, reward_list=reward_list, U_max = U_max, V_max = V_max, dt=dt, disturbance=disturbance, \
                                                             disturb_std=disturb_std, disturb_max=disturb_max, obstacle_list=obstacle_list, \
                                                             num_constraints_hard=num_constraints_hard1)
@@ -169,5 +170,3 @@ cbar = plt.colorbar(im, ax=ax)
 cbar.set_label('time(s) colorbar')
 
 plt.show()
-
-
